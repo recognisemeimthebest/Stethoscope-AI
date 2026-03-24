@@ -7,11 +7,12 @@
 #include <TFT_eSPI.h> 
 #include <SPI.h>
 #include <math.h>
+#include <esp_sleep.h> // 💡 하드웨어 딥슬립을 위한 공식 라이브러리 추가
 
 TFT_eSPI tft = TFT_eSPI(); 
 
-#define BTN_R 35
-#define BTN_L 0
+#define BTN_R 35 // 오른쪽 (전원/모드)
+#define BTN_L 0  // 왼쪽
 #define TFT_BL 4
 #define I2S_WS 25
 #define I2S_SD 33
@@ -34,9 +35,7 @@ volatile bool uiNeedsUpdate = true;
 volatile bool isRecording5Sec = false; 
 unsigned long recordStartTime = 0;
 
-enum AppState { ACTIVE, SLEEP };
-volatile AppState currentState = ACTIVE;
-
+// 더 이상 소프트웨어 가짜 SLEEP 상태가 필요 없습니다.
 volatile int16_t sharedAveragedSample = 0;
 
 unsigned long rPressTime = 0;
@@ -50,13 +49,6 @@ const int DECIMATION = SAMPLE_RATE / TARGET_RATE;
 const int BLE_BUFFER_SIZE = 50; 
 int16_t bleBuffer[BLE_BUFFER_SIZE];
 int bufferIndex = 0;
-
-// ── 레이아웃 (세로 135x240) ─────────────────────────
-// 모드 텍스트: Y≈30
-// 파형:       Y=55 ~ Y=135
-// BPM:        Y=145 ~ Y=185 (HEART만)
-// 구분선:     Y=205
-// 하단 버튼:  Y=225
 
 #define WAVE_Y_TOP 55
 #define WAVE_Y_BOTTOM 135
@@ -78,7 +70,7 @@ const int drawInterval = 15;
 TaskHandle_t audioTaskHandle;
 
 // ══════════════════════════════════════════════════════════
-//  DSP Heart Rate — HEART 모드 전용
+//  DSP Heart Rate
 // ══════════════════════════════════════════════════════════
 
 #define DSP_NOISE_FLOOR      0.0005f
@@ -217,7 +209,7 @@ class MyServerCallbacks: public BLEServerCallbacks {
         deviceConnected = false; 
         isRecording5Sec = false; 
         uiNeedsUpdate = true;
-        if (currentState == ACTIVE && isBleOn) BLEDevice::startAdvertising(); 
+        if (isBleOn) BLEDevice::startAdvertising(); 
     }
 };
 
@@ -226,37 +218,24 @@ class MyCmdCallbacks: public BLECharacteristicCallbacks {
 };
 
 // ══════════════════════════════════════════════════════════
-//  Sleep / Wake
+//  🛡️ 궁극의 하드웨어 딥슬립 (물리적 전원 차단)
 // ══════════════════════════════════════════════════════════
 
-void enterSleepMode() {
-    currentState = SLEEP;
-    isBleOn = false; 
-    isRecording5Sec = false;
+void enterDeepSleep() {
+    // 1. 화면 및 백라이트 물리적 차단
     tft.writecommand(0x10); 
     delay(5);
     digitalWrite(TFT_BL, LOW); 
-    BLEDevice::stopAdvertising(); 
+    
+    // 2. 버튼에서 손을 완벽히 뗄 때까지 대기
     while(digitalRead(BTN_R) == LOW || digitalRead(BTN_L) == LOW) { delay(10); }
-    delay(500); 
-}
+    delay(200); // 떼고 나서 생기는 기계적 진동(노이즈) 무시
 
-void wakeUp() {
-    while(digitalRead(BTN_R) == LOW || digitalRead(BTN_L) == LOW) { delay(10); }
-    delay(100); 
-    rPressTime = 0; rLongPressed = false;
-    lPressTime = 0; lLongPressed = false;
-    currentMode = 1; 
-    isBleOn = false; 
-    isRecording5Sec = false;
-    dsp_reset();
-    tft.writecommand(0x11); 
-    delay(120); 
-    tft.fillScreen(TFT_BLACK);
-    uiNeedsUpdate = true; 
-    graphX = WAVE_X_START;
-    digitalWrite(TFT_BL, HIGH); 
-    currentState = ACTIVE; 
+    // 3. 🧠 CPU에게 "R버튼(GPIO 35)이 LOW가 되면 그때 깨어나라"고 예약
+    esp_sleep_enable_ext0_wakeup(GPIO_NUM_35, 0);
+
+    // 4. 🧠 진짜로 뇌 전원을 뽑아버림 (이후 코드는 영원히 실행되지 않음)
+    esp_deep_sleep_start(); 
 }
 
 // ══════════════════════════════════════════════════════════
@@ -267,44 +246,40 @@ void audioTask(void *pvParameters) {
     static int prevMode = -1;
 
     for(;;) { 
-        if (currentState == ACTIVE) {
-            int32_t sum = 0;
-            for(int i=0; i<DECIMATION; i++) {
-                int32_t sample = 0;
-                size_t bytesIn = 0;
-                i2s_read(I2S_PORT, &sample, sizeof(sample), &bytesIn, portMAX_DELAY);
-                sum += (int16_t)(sample >> 16);
-            }
-            int32_t avg = sum / DECIMATION;
-            int32_t amplified = avg << 2; 
-            if (amplified > 32767) amplified = 32767;
-            else if (amplified < -32768) amplified = -32768;
+        int32_t sum = 0;
+        for(int i=0; i<DECIMATION; i++) {
+            int32_t sample = 0;
+            size_t bytesIn = 0;
+            i2s_read(I2S_PORT, &sample, sizeof(sample), &bytesIn, portMAX_DELAY);
+            sum += (int16_t)(sample >> 16);
+        }
+        int32_t avg = sum / DECIMATION;
+        int32_t amplified = avg << 2; 
+        if (amplified > 32767) amplified = 32767;
+        else if (amplified < -32768) amplified = -32768;
 
-            sharedAveragedSample = (int16_t)amplified; 
+        sharedAveragedSample = (int16_t)amplified; 
 
-            int mode = currentMode;
-            if (mode != prevMode) {
-                if (mode == 1) dsp_reset();
-                prevMode = mode;
-            }
-            if (mode == 1) dsp_process((int16_t)amplified);
+        int mode = currentMode;
+        if (mode != prevMode) {
+            if (mode == 1) dsp_reset();
+            prevMode = mode;
+        }
+        if (mode == 1) dsp_process((int16_t)amplified);
 
-            if (deviceConnected && isRecording5Sec) {
-                bleBuffer[bufferIndex++] = (int16_t)amplified;
-                if (bufferIndex >= BLE_BUFFER_SIZE) {
-                    pAudioChar->setValue((uint8_t*)bleBuffer, BLE_BUFFER_SIZE * sizeof(int16_t));
-                    pAudioChar->notify();
-                    bufferIndex = 0;
-                }
+        if (deviceConnected && isRecording5Sec) {
+            bleBuffer[bufferIndex++] = (int16_t)amplified;
+            if (bufferIndex >= BLE_BUFFER_SIZE) {
+                pAudioChar->setValue((uint8_t*)bleBuffer, BLE_BUFFER_SIZE * sizeof(int16_t));
+                pAudioChar->notify();
+                bufferIndex = 0;
             }
-        } else {
-            vTaskDelay(pdMS_TO_TICKS(50)); 
         }
     }
 }
 
 // ══════════════════════════════════════════════════════════
-//  Setup
+//  Setup & UI
 // ══════════════════════════════════════════════════════════
 
 void setup() {
@@ -313,6 +288,13 @@ void setup() {
     pinMode(BTN_L, INPUT_PULLUP);
     pinMode(TFT_BL, OUTPUT);
     digitalWrite(TFT_BL, HIGH); 
+
+    // 💡 딥슬립에서 R버튼을 눌러 깨어났다면, 손을 완전히 뗄 때까지 여기서 대기합니다.
+    // 안 그러면 켜지자마자 "버튼이 눌려있네? 다음 모드로 가야지!" 하고 오작동합니다.
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0) {
+        while(digitalRead(BTN_R) == LOW) { delay(10); }
+        delay(200); 
+    }
 
     tft.init();
     tft.setRotation(0); 
@@ -348,12 +330,8 @@ void setup() {
     xTaskCreatePinnedToCore(audioTask, "AudioTask", 10000, NULL, 2, &audioTaskHandle, 0);
 }
 
-// ══════════════════════════════════════════════════════════
-//  Display
-// ══════════════════════════════════════════════════════════
-
 void drawWaveform(int16_t audioSample) {
-    if (currentMode == 3 || currentState == SLEEP || isRecording5Sec) return;
+    if (currentMode == 3 || isRecording5Sec) return;
     if (millis() - lastDrawTime < drawInterval) return;
     lastDrawTime = millis();
 
@@ -394,12 +372,11 @@ void drawWaveform(int16_t audioSample) {
     }
 }
 
-// ── BPM (HEART 모드 전용, 파형과 하단 바 사이) ──────
 static float lastDisplayedBPM = -1;
 static unsigned long lastBpmDrawTime = 0;
 
 void drawBPM() {
-    if (currentMode != 1 || currentState == SLEEP || isRecording5Sec) return;
+    if (currentMode != 1 || isRecording5Sec) return;
     if (millis() - lastBpmDrawTime < 500) return;
     lastBpmDrawTime = millis();
 
@@ -441,11 +418,10 @@ void clearBPM() {
     lastBpmDrawTime = 0;
 }
 
-// ── Beat 인디케이터 ──────────────────────────────────
 static unsigned long lastBeatFlash = 0;
 
 void drawBeatIndicator() {
-    if (currentMode != 1 || currentState == SLEEP) return;
+    if (currentMode != 1) return;
     if (dsp_beat_flag) {
         dsp_beat_flag = false;
         tft.fillCircle(12, 12, 5, TFT_RED);
@@ -456,9 +432,8 @@ void drawBeatIndicator() {
     }
 }
 
-// ── UI ───────────────────────────────────────────────
 void drawUI() {
-    if (!uiNeedsUpdate || currentState == SLEEP || isRecording5Sec) return;
+    if (!uiNeedsUpdate || isRecording5Sec) return;
 
     int cx = tft.width() / 2;
     tft.setTextDatum(MC_DATUM); 
@@ -476,9 +451,10 @@ void drawUI() {
 
     if (deviceConnected) {
         tft.fillCircle(tft.width() - 12, 12, 5, TFT_GREEN);
+    } else {
+        tft.fillCircle(tft.width() - 12, 12, 5, TFT_BLACK);
     }
 
-    // 모드 텍스트 (Y=30으로 올림)
     if (currentMode == 1) {
         tft.setTextColor(TFT_RED, TFT_BLACK);
         tft.drawString("HEART", cx, 30, 4); 
@@ -505,7 +481,6 @@ void drawUI() {
         }
     }
 
-    // 하단 (기존 유지)
     tft.drawFastHLine(10, tft.height() - 35, tft.width() - 20, TFT_DARKGREY);
     tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
     
@@ -528,21 +503,6 @@ void drawUI() {
 // ══════════════════════════════════════════════════════════
 
 void loop() {
-    if (currentState == SLEEP) {
-        if (digitalRead(BTN_R) == LOW || digitalRead(BTN_L) == LOW) {
-            unsigned long pressCheckStart = millis();
-            bool isRealPress = true;
-            while (millis() - pressCheckStart < 100) {
-                if (digitalRead(BTN_R) == HIGH && digitalRead(BTN_L) == HIGH) {
-                    isRealPress = false; break; 
-                }
-                delay(10);
-            }
-            if (isRealPress) wakeUp();
-        }
-        return; 
-    }
-
     if (isRecording5Sec) {
         if (millis() - recordStartTime >= 5000) {
             isRecording5Sec = false; 
@@ -554,24 +514,30 @@ void loop() {
         return; 
     }
 
+    // --- R 버튼 (모드 변경 및 전원 OFF) ---
     bool currR = digitalRead(BTN_R);
     if (currR == LOW) { 
         if (rPressTime == 0) rPressTime = millis(); 
+        
+        // 💡 1.5초간 눌렀다면 딥슬립 진입
         if (millis() - rPressTime > 1500 && !rLongPressed) {
             rLongPressed = true;
-            enterSleepMode();
+            enterDeepSleep(); // 이 함수를 호출하면 보드 전원이 꺼지며 영영 돌아오지 않습니다.
         }
     } else { 
         if (rPressTime != 0) { 
+            // 길게 누르지 않고 짧게 뗐다면 모드 변경
             if (!rLongPressed && millis() - rPressTime > 50) {
                 currentMode++;
                 if (currentMode > 3) currentMode = 1;
                 uiNeedsUpdate = true;
             }
-            rPressTime = 0; rLongPressed = false;
+            rPressTime = 0; 
+            rLongPressed = false;
         }
     }
 
+    // --- L 버튼 (BLE 켜기 or 녹음 시작) ---
     bool currL = digitalRead(BTN_L);
     if (currL == LOW) {
         if (lPressTime == 0) lPressTime = millis();
@@ -601,13 +567,11 @@ void loop() {
 
     drawUI();
 
-    if (currentState == ACTIVE && (currentMode == 1 || currentMode == 2) && !isRecording5Sec) {
+    if ((currentMode == 1 || currentMode == 2) && !isRecording5Sec) {
         drawWaveform(sharedAveragedSample);
-    }
-
-    // HEART 모드에서만 BPM + Beat
-    if (currentState == ACTIVE && currentMode == 1 && !isRecording5Sec) {
-        drawBPM();
-        drawBeatIndicator();
+        if (currentMode == 1) {
+            drawBPM();
+            drawBeatIndicator();
+        }
     }
 }
