@@ -1,0 +1,43 @@
+{
+    "Adult_HeartSound": {
+        "total_files": 3541,
+        "sample_rates": [
+            2000
+        ],
+        "avg_duration": 22.35,
+        "max_duration": 122.0,
+        "min_duration": 5.31,
+        "total_duration_min": 1318.74
+    },
+    "Pediatric_HeartSound": {
+        "total_files": 3165,
+        "sample_rates": [
+            4000,
+            16000
+        ],
+        "avg_duration": 22.88,
+        "max_duration": 64.51,
+        "min_duration": 2.67,
+        "total_duration_min": 1206.69
+    },
+    "ESC50_Noise": {
+        "total_files": 2000,
+        "sample_rates": [
+            44100
+        ],
+        "avg_duration": 5.0,
+        "max_duration": 5.0,
+        "min_duration": 5.0,
+        "total_duration_min": 166.67
+    },
+    "Custom_Data": {
+        "total_files": 3,
+        "sample_rates": [
+            2000
+        ],
+        "avg_duration": 309.2,
+        "max_duration": 597.6,
+        "min_duration": 143.22,
+        "total_duration_min": 15.46
+    }
+}
