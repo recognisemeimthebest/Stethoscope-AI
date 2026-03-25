@@ -26,16 +26,16 @@
         let bleDevice = null;
         let mqttClient = null;
         let rxCharacteristic = null;
-        let cmdCharacteristic = null; // 💡 기기와 대화할 커맨드 채널 추가!
+        let cmdCharacteristic = null;
 
         const SERVICE_UUID = '19b10000-e8f2-537e-4f6c-d104768a1214';
         const AUDIO_CHAR_UUID = '19b10001-e8f2-537e-4f6c-d104768a1214';
-        const CMD_CHAR_UUID = '19b10002-e8f2-537e-4f6c-d104768a1214'; // 💡 커맨드 UUID
+        const CMD_CHAR_UUID = '19b10002-e8f2-537e-4f6c-d104768a1214';
 
         let webAudioChunks = [];
         let receiveTimeout = null; 
         
-        let patientListString = ""; // 기기로 쏠 명단 (예: "PAT:P001,P002")
+        let patientListString = "";
         let currentRecordPatient = "NONE";
         let currentRecordType = "HEART";
 
@@ -49,7 +49,7 @@
         }
 
         // ==========================================
-        // 1. MQTT (서버 통신)
+        // 1. MQTT (서버 통신 및 번역)
         // ==========================================
         function connectMQTT() {
             mqttClient = mqtt.connect("ws://114.206.167.99:9001");
@@ -67,10 +67,24 @@
                         log("텅 빔: 대기 환자가 없습니다.");
                         patientListString = "PAT:NONE";
                     } else {
-                        // 환자 ID만 뽑아서 쉼표로 연결 (예: "PAT:P001,P002,P003")
-                        const ids = patients.map(p => p.patient_id).join(',');
-                        patientListString = "PAT:" + ids;
-                        log(`🏥 환자 명단 수신 완료! (${ids})`);
+                        // 💡 한글 이름을 영어 성씨로, 병실을 짧은 영숫자로 변환
+                        const formatData = patients.map(p => {
+                            let engName = "Pat"; 
+                            if(p.name.includes("김")) engName = "Kim";
+                            else if(p.name.includes("이")) engName = "Lee";
+                            else if(p.name.includes("박")) engName = "Park";
+                            else if(p.name.includes("최")) engName = "Choi";
+                            else if(p.name.includes("정")) engName = "Jung";
+                            
+                            let engWard = p.ward.replace(/[^0-9]/g, ''); 
+                            if(p.ward.includes("응급")) engWard = "ER";
+                            
+                            // 기기가 표를 그릴 수 있게 "P001|Kim|301" 형태로 묶음
+                            return `${p.patient_id}|${engName}|${engWard}`;
+                        }).join(','); 
+
+                        patientListString = "PAT:" + formatData;
+                        log(`🏥 기기 전송용 데이터 생성 완료!`);
                         log("👉 이제 '2. 청진기 블루투스 연결'을 눌러주세요.");
                     }
                 }
@@ -97,53 +111,48 @@
                 });
 
                 const server = await bleDevice.gatt.connect();
-                document.getElementById('status').innerText = `연결됨: AI Stethoscope`;
+                document.getElementById('status').innerText = `연결됨: AI_Stetho`;
                 document.getElementById('status').style.color = '#39ff14';
                 log("✅ 청진기 연결 성공!");
 
                 const service = await server.getPrimaryService(SERVICE_UUID);
                 
-                // 💡 오디오 채널 연결
                 rxCharacteristic = await service.getCharacteristic(AUDIO_CHAR_UUID);
                 await rxCharacteristic.startNotifications();
                 
-                // 💡 커맨드 채널 연결
                 cmdCharacteristic = await service.getCharacteristic(CMD_CHAR_UUID);
                 await cmdCharacteristic.startNotifications();
 
-                // 💡 연결되자마자 청진기 화면으로 환자 명단을 쏩니다!
+                // 연결되자마자 청진기 화면으로 환자 명단 쏘기
                 const encoder = new TextEncoder();
                 await cmdCharacteristic.writeValue(encoder.encode(patientListString));
-                log(`📡 기기로 환자 명단 전송 완료! (${patientListString})`);
-                log("🩺 이제 폰은 주머니에 넣고, 청진기 화면을 보며 조작하세요!");
+                log(`📡 기기로 환자 표 전송 완료!`);
+                log("🩺 이제 폰은 주머니에 넣고, 청진기 화면을 보며 R버튼으로 조작하세요!");
 
-                // 💡 청진기가 보내는 귓속말(헤더) 수신 대기
                 cmdCharacteristic.addEventListener('characteristicvaluechanged', (event) => {
                     const cmdText = new TextDecoder("utf-8").decode(event.target.value);
                     if (cmdText.startsWith("REC:")) {
-                        // 예: "REC:P002:HEART"
                         const parts = cmdText.split(":");
                         if (parts.length === 3) {
                             currentRecordPatient = parts[1];
                             currentRecordType = parts[2];
-                            log(`🔥 기기 녹음 시작 신호 수신! [환자: ${currentRecordPatient}, 부위: ${currentRecordType}]`);
-                            webAudioChunks = []; // 버퍼 싹 비우기
-                            document.body.style.backgroundColor = "#5a0000"; // 녹음 중 빨간 배경 효과
+                            log(`🔥 기기 녹음 시작! [환자: ${currentRecordPatient}, 부위: ${currentRecordType}]`);
+                            webAudioChunks = []; 
+                            document.body.style.backgroundColor = "#5a0000"; 
                         }
                     }
                 });
 
-                // 💡 오디오 데이터 수신 대기
                 rxCharacteristic.addEventListener('characteristicvaluechanged', (event) => {
                     const rawData = new Uint8Array(event.target.value.buffer);
                     webAudioChunks.push(rawData);
 
                     clearTimeout(receiveTimeout);
                     receiveTimeout = setTimeout(() => {
-                        document.body.style.backgroundColor = "#121212"; // 배경 원상복구
-                        log(`✅ 5초 수신 완료! (${currentRecordPatient} / ${currentRecordType}) 서버로 전송합니다.`);
+                        document.body.style.backgroundColor = "#121212"; 
+                        log(`✅ 5초 수신 완료! 서버로 오디오를 전송합니다.`);
                         sendWavToServer();
-                    }, 500); // 0.5초 동안 안 들어오면 녹음 끝!
+                    }, 500); 
                 });
 
             } catch (error) { log("❌ BLE 연결 실패: " + error); }
@@ -183,7 +192,6 @@
             }
 
             if(mqttClient && mqttClient.connected) {
-                // 💡 기기가 정해준 환자와 부위 정보로 URL을 만들어서 쏩니다!
                 const topic = `stethoscope/wav/${currentRecordPatient}/${currentRecordType}`;
                 mqttClient.publish(topic, new Uint8Array(buffer)); 
                 log(`🚀 전송 완료! [${topic}]`);
