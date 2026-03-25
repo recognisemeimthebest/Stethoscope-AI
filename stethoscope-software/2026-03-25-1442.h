@@ -34,7 +34,7 @@ BLECharacteristic* pCmdChar = NULL;
 
 volatile bool deviceConnected = false;
 volatile bool isBleOn = false; 
-volatile int currentMode = 3; 
+volatile int currentMode = 1; 
 volatile bool uiNeedsUpdate = true; 
 
 volatile bool isRecording5Sec = false; 
@@ -521,9 +521,10 @@ void drawUI() {
 
                 tft.setTextDatum(ML_DATUM); 
                 tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
-                tft.drawString("ID", 20, 42, 1);
-                tft.drawString("NAME", 85, 42, 1);
-                tft.drawString("WARD", 170, 42, 1);
+                // 💡 헤더 좌표를 왼쪽으로 확 땡겼습니다! (20, 85, 170 ➡ 10, 55, 100)
+                tft.drawString("ID", 10, 42, 1);
+                tft.drawString("NAME", 55, 42, 1);
+                tft.drawString("WARD", 100, 42, 1);
 
                 for (int i = 0; i < visibleRows && (startIdx + i) < patientCount; i++) {
                     int pIdx = startIdx + i;
@@ -532,15 +533,16 @@ void drawUI() {
                     if (pIdx == currentPatIdx) {
                         tft.fillRect(0, y - 8, tft.width(), rowHeight, 0x03E0); 
                         tft.setTextColor(TFT_WHITE, 0x03E0);
-                        tft.drawString(">", 5, y, 2); 
+                        tft.drawString(">", 1, y, 2); // 💡 커서도 1픽셀 위치로 바짝 붙임
                     } else {
                         tft.fillRect(0, y - 8, tft.width(), rowHeight, TFT_BLACK);
                         tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
                     }
 
-                    tft.drawString(patientList[pIdx].id, 20, y, 2);
-                    tft.drawString(patientList[pIdx].name, 85, y, 2);
-                    tft.drawString(patientList[pIdx].ward, 170, y, 2);
+                    // 💡 데이터 좌표도 헤더에 맞춰서 확 땡겼습니다!
+                    tft.drawString(patientList[pIdx].id, 10, y, 2);
+                    tft.drawString(patientList[pIdx].name, 55, y, 2);
+                    tft.drawString(patientList[pIdx].ward, 100, y, 2);
                 }
                 tft.setTextDatum(MC_DATUM); 
             }
@@ -565,7 +567,7 @@ void loop() {
     static bool lastConnState = false;
     if (deviceConnected != lastConnState) {
         if (deviceConnected) {
-            currentMode = 3; 
+            //currentMode = 3; 
             dsp_reset(); changeState(ACTIVE);
         } else {
             if (isRecording5Sec) {
