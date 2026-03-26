@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Stethoscope Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <style>
+        :root {
+            --bg:     #0d1117;
+            --card:   #161b22;
+            --card2:  #1c2128;
+            --border: #30363d;
+            --txt:    #e6edf3;
+            --txt2:   #8b949e;
+            --green:  #3fb950;
+            --blue:   #58a6ff;
+            --red:    #f85149;
+            --yellow: #d29922;
+            --purple: #bc8cff;
+        }
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;
+             background:var(--bg);color:var(--txt);min-height:100vh;}
+
+        /* Header */
+        .hdr{background:var(--card);border-bottom:1px solid var(--border);padding:12px 24px;
+             display:flex;align-items:center;justify-content:space-between;
+             position:sticky;top:0;z-index:200;}
+        .hdr-l{display:flex;align-items:center;gap:12px;}
+        .logo{width:34px;height:34px;border-radius:8px;
+              background:linear-gradient(135deg,var(--blue),var(--purple));
+              display:flex;align-items:center;justify-content:center;font-size:17px;}
+        .hdr-title{font-size:15px;font-weight:700;}
+        .hdr-sub{font-size:11px;color:var(--txt2);}
+        .hdr-r{display:flex;gap:8px;}
+
+        /* Badge */
+        .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+               border-radius:20px;font-size:11px;font-weight:600;border:1px solid transparent;}
+        .dot{width:7px;height:7px;border-radius:50%;}
+        .ok {background:rgba(63,185,80,.1);border-color:rgba(63,185,80,.3);color:var(--green);}
+        .ok  .dot{background:var(--green);animation:blink 2s infinite;}
+        .err{background:rgba(248,81,73,.1);border-color:rgba(248,81,73,.3);color:var(--red);}
+        .err .dot{background:var(--red);}
+        .warn{background:rgba(210,153,34,.1);border-color:rgba(210,153,34,.3);color:var(--yellow);}
+        .warn .dot{background:var(--yellow);}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+        /* Layout */
+        .wrap{max-width:1280px;margin:0 auto;padding:18px 24px;display:flex;flex-direction:column;gap:14px;}
+        .row{display:grid;gap:14px;}
+        .r1{grid-template-columns:1fr;}
+        .r2{grid-template-columns:1fr 1fr;}
+        @media(max-width:820px){.r2{grid-template-columns:1fr;}}
+
+        /* Card */
+        .card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+        .ch{padding:12px 16px;border-bottom:1px solid var(--border);
+            display:flex;align-items:center;justify-content:space-between;gap:10px;}
+        .ct{font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--txt2);
+            text-transform:uppercase;display:flex;align-items:center;gap:7px;white-space:nowrap;}
+        .cb{padding:16px;}
+
+        /* Buttons */
+        .btn{padding:8px 14px;border:none;border-radius:7px;cursor:pointer;
+             font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;
+             transition:opacity .15s,transform .1s;}
+        .btn:hover{opacity:.82;} .btn:active{transform:scale(.97);}
+        .btn:disabled{opacity:.3;cursor:not-allowed;transform:none;}
+        .btn-blue {background:var(--blue);color:#0d1117;}
+        .btn-green{background:var(--green);color:#0d1117;}
+        .btn-ghost{background:#21262d;color:var(--txt);border:1px solid var(--border);}
+        .btn-red  {background:var(--red);color:#fff;}
+        .btn-sm   {padding:4px 10px;font-size:11px;}
+
+        /* Patient table */
+        .ptbl{width:100%;border-collapse:collapse;font-size:13px;}
+        .ptbl th{text-align:left;padding:8px 14px;border-bottom:1px solid var(--border);
+                 color:var(--txt2);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+        .ptbl td{padding:10px 14px;border-bottom:1px solid #21262d;}
+        .ptbl tr:last-child td{border-bottom:none;}
+        .ptbl tr:hover td{background:var(--card2);}
+        .ptbl tr.sel td{background:rgba(63,185,80,.05);}
+        .pid{font-family:monospace;font-size:12px;color:var(--blue);}
+        .ptbl tr.sel .pid{color:var(--green);}
+        .wbadge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;
+                background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.2);color:var(--blue);}
+        .wbadge.er{background:rgba(248,81,73,.1);border-color:rgba(248,81,73,.2);color:var(--red);}
+
+        /* Vital grid */
+        .vgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+        .vbox{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;}
+        .vval{font-size:30px;font-weight:800;line-height:1.1;}
+        .vunit{font-size:10px;color:var(--txt2);margin-top:2px;}
+        .vlbl{font-size:11px;color:var(--txt2);margin-top:5px;}
+        .vred{color:var(--red);} .vblue{color:var(--blue);} .vgreen{color:var(--green);}
+
+        /* Waveform */
+        .wave-wrap{background:#070c10;border-radius:10px;overflow:hidden;border:1px solid #1c2a1c;position:relative;}
+        #waveCanvas{display:block;width:100%;height:140px;}
+        .wave-mode-lbl{position:absolute;top:10px;left:14px;font-size:11px;font-weight:700;
+                       letter-spacing:.5px;pointer-events:none;}
+        .wave-meta-lbl{position:absolute;top:10px;right:14px;font-size:10px;color:#2a3d2a;
+                       font-family:monospace;pointer-events:none;}
+
+        /* Recording banner */
+        .rec-banner{display:none;align-items:center;gap:10px;padding:10px 16px;
+                    background:rgba(248,81,73,.08);border:1px solid rgba(248,81,73,.25);
+                    border-radius:8px;font-size:13px;font-weight:600;color:var(--red);}
+        .rec-banner.on{display:flex;}
+        .recdot{width:10px;height:10px;background:var(--red);border-radius:50%;animation:blink 1s infinite;flex-shrink:0;}
+        .recbar{flex:1;height:4px;background:var(--border);border-radius:4px;overflow:hidden;}
+        .recprog{height:100%;background:var(--red);width:0%;transition:width .08s linear;}
+
+        /* Info rows */
+        .irow{display:flex;justify-content:space-between;align-items:center;
+              padding:8px 0;border-bottom:1px solid #21262d;font-size:13px;}
+        .irow:last-child{border-bottom:none;}
+        .ikey{color:var(--txt2);} .ival{font-family:monospace;font-size:12px;font-weight:500;}
+
+
+        /* Upload history */
+        .hlist{max-height:260px;overflow-y:auto;}
+        .hitem{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:10px;
+               padding:9px 0;border-bottom:1px solid #21262d;}
+        .hitem:last-child{border-bottom:none;}
+        .hicon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;
+               justify-content:center;font-size:14px;flex-shrink:0;}
+        .hicon.h{background:rgba(248,81,73,.12);}.hicon.l{background:rgba(88,166,255,.12);}
+        .hmeta{min-width:0;}
+        .htopic{font-family:monospace;font-size:11px;color:var(--txt);white-space:nowrap;
+                overflow:hidden;text-overflow:ellipsis;}
+        .htime{font-size:11px;color:var(--txt2);margin-top:2px;}
+        .hactions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+        .hsize{font-size:11px;color:var(--txt2);}
+
+        /* Log */
+        .logarea{background:#070c10;border-radius:8px;padding:10px 12px;height:220px;
+                 overflow-y:auto;font-family:Consolas,'Courier New',monospace;font-size:12px;line-height:1.7;}
+        .ll{display:flex;gap:8px;}
+        .lt{color:#333d47;flex-shrink:0;} .lm{color:#cdd9e5;}
+        .lok .lm{color:var(--green);} .lerr .lm{color:var(--red);}
+        .lwarn .lm{color:var(--yellow);} .linfo .lm{color:var(--blue);}
+
+        /* ── Reassign Modal ── */
+        .modal-overlay{
+            display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+            z-index:500;align-items:center;justify-content:center;
+        }
+        .modal-overlay.open{display:flex;}
+        .modal{background:var(--card);border:1px solid var(--border);border-radius:14px;
+               width:min(480px,94vw);overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6);}
+        .modal-hdr{padding:16px 20px;border-bottom:1px solid var(--border);
+                   display:flex;align-items:center;justify-content:space-between;}
+        .modal-title{font-size:14px;font-weight:700;}
+        .modal-sub{font-size:12px;color:var(--txt2);margin-top:3px;}
+        .modal-close{background:none;border:none;color:var(--txt2);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;}
+        .modal-close:hover{color:var(--txt);}
+        .modal-body{padding:16px 20px;}
+        .modal-info{background:var(--bg);border:1px solid var(--border);border-radius:8px;
+                    padding:12px;font-size:12px;margin-bottom:14px;}
+        .modal-info .row-info{display:flex;gap:8px;margin-bottom:4px;}
+        .modal-info .row-info:last-child{margin-bottom:0;}
+        .modal-info .k{color:var(--txt2);min-width:60px;}
+        .modal-info .v{font-family:monospace;color:var(--txt);}
+        .modal-section{font-size:11px;font-weight:700;color:var(--txt2);
+                       text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;}
+        .pat-picker{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;}
+        .pat-opt{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;
+                 border:1px solid var(--border);cursor:pointer;transition:background .1s;}
+        .pat-opt:hover{background:var(--card2);}
+        .pat-opt.selected{background:rgba(63,185,80,.08);border-color:rgba(63,185,80,.35);}
+        .pat-opt-id{font-family:monospace;font-size:12px;color:var(--blue);min-width:50px;}
+        .pat-opt.selected .pat-opt-id{color:var(--green);}
+        .pat-opt-name{font-size:13px;font-weight:500;flex:1;}
+        .pat-opt-ward{font-size:11px;}
+        .modal-ftr{padding:12px 20px;border-top:1px solid var(--border);
+                   display:flex;justify-content:flex-end;gap:8px;}
+
+        @keyframes recflash{0%,100%{background:#0d1117}50%{background:#150909}}
+        body.recording{animation:recflash 1.2s ease-in-out infinite;}
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="hdr">
+    <div class="hdr-l">
+        <div class="logo">🩺</div>
+        <div>
+            <div class="hdr-title">AI Stethoscope Dashboard</div>
+            <div class="hdr-sub">전자청진기 모니터링 시스템</div>
+        </div>
+    </div>
+    <div class="hdr-r">
+        <span class="badge err" id="mqttBadge"><span class="dot"></span>MQTT 미연결</span>
+        <span class="badge err" id="bleBadge"><span class="dot"></span>BLE 미연결</span>
+    </div>
+</header>
+
+<div class="wrap">
+
+    <!-- ① 대기 환자 목록 -->
+    <div class="row r1">
+        <div class="card">
+            <div class="ch">
+                <span class="ct">🏥 대기 환자 목록</span>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <span class="badge warn" id="patBadge">0명</span>
+                    <button class="btn btn-blue" id="btnMqtt" onclick="connectMQTT()">🌐 EMR 서버 연결</button>
+                    <button class="btn btn-green" id="btnBle" onclick="connectBLE()">📡 BLE 연결</button>
+                </div>
+            </div>
+            <div style="padding:0;">
+                <table class="ptbl">
+                    <thead><tr><th>ID</th><th>성명</th><th>병실</th><th>상태</th></tr></thead>
+                    <tbody id="patTbody">
+                        <tr><td colspan="4" style="text-align:center;color:var(--txt2);padding:22px;">
+                            EMR 서버에 연결하면 환자 목록이 표시됩니다
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ② 실시간 측정값 -->
+    <div class="row r1">
+        <div class="card">
+            <div class="ch">
+                <span class="ct">📈 실시간 측정값</span>
+                <div class="rec-banner" id="recBanner">
+                    <span class="recdot"></span>
+                    <span>REC</span>
+                    <span id="recPatLbl" style="color:var(--txt);font-size:12px;"></span>
+                    <span id="recTypeLbl" style="color:var(--yellow);font-size:12px;"></span>
+                    <div class="recbar"><div class="recprog" id="recProg"></div></div>
+                    <span id="recTimer" style="font-size:12px;min-width:34px;">0.0s</span>
+                </div>
+            </div>
+            <div class="cb">
+                <div class="vgrid">
+                    <div class="vbox">
+                        <div class="vval vred" id="bpmVal">—</div>
+                        <div class="vunit">BPM</div>
+                        <div class="vlbl">심박수</div>
+                    </div>
+                    <div class="vbox">
+                        <div class="vval vblue" id="rrVal">—</div>
+                        <div class="vunit">회/min</div>
+                        <div class="vlbl">호흡수</div>
+                    </div>
+                    <div class="vbox">
+                        <div class="vval vgreen" id="recCnt">0</div>
+                        <div class="vunit">회</div>
+                        <div class="vlbl">녹음 횟수</div>
+                    </div>
+                </div>
+                <div class="wave-wrap">
+                    <canvas id="waveCanvas"></canvas>
+                    <div class="wave-mode-lbl" id="waveModeLbl" style="color:#2a3d2a;">IDLE</div>
+                    <div class="wave-meta-lbl">16kHz → 2kHz</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ③ 업로드 기록 + 청진기 기기 -->
+    <div class="row r2">
+
+        <!-- 업로드 기록 -->
+        <div class="card">
+            <div class="ch">
+                <span class="ct">📤 업로드 기록</span>
+                <span class="badge warn" id="uploadBadge">0건</span>
+            </div>
+            <div class="cb" style="padding:10px 16px;">
+                <div class="hlist" id="histList">
+                    <div style="text-align:center;color:var(--txt2);font-size:13px;padding:20px;" data-empty="1">
+                        업로드 기록이 없습니다
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 청진기 기기 -->
+        <div class="card">
+            <div class="ch">
+                <span class="ct">📟 청진기 기기</span>
+            </div>
+            <div class="cb">
+                <div class="irow"><span class="ikey">기기명</span><span class="ival" id="devName">—</span></div>
+                <div class="irow"><span class="ikey">모드</span><span class="ival" id="devMode">—</span></div>
+                <div class="irow"><span class="ikey">선택 환자</span><span class="ival" id="devPat">—</span></div>
+                <div class="irow"><span class="ikey">마지막 명령</span><span class="ival" id="devLastCmd">—</span></div>
+                <div class="irow"><span class="ikey">BLE 연결 시각</span><span class="ival" id="devConn">—</span></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ④ 시스템 로그 -->
+    <div class="row r1">
+        <div class="card">
+            <div class="ch">
+                <span class="ct">📋 시스템 로그</span>
+                <button class="btn btn-ghost btn-sm" onclick="clearLog()">지우기</button>
+            </div>
+            <div class="cb" style="padding:8px 12px;">
+                <div class="logarea" id="logArea"></div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /wrap -->
+
+<!-- ══════════════ 환자 재지정 Modal ══════════════ -->
+<div class="modal-overlay" id="reassignModal">
+    <div class="modal">
+        <div class="modal-hdr">
+            <div>
+                <div class="modal-title">환자 재지정</div>
+                <div class="modal-sub">녹음된 음성을 올바른 환자에게 다시 배정합니다</div>
+            </div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <!-- 기존 녹음 정보 -->
+            <div class="modal-info" id="modalRecInfo">
+                <div class="row-info"><span class="k">현재 환자</span><span class="v" id="modalCurPat">—</span></div>
+                <div class="row-info"><span class="k">녹음 유형</span><span class="v" id="modalCurType">—</span></div>
+                <div class="row-info"><span class="k">녹음 시각</span><span class="v" id="modalCurTime">—</span></div>
+                <div class="row-info"><span class="k">파일 크기</span><span class="v" id="modalCurSize">—</span></div>
+            </div>
+            <!-- 환자 선택 -->
+            <div class="modal-section">올바른 환자를 선택하세요</div>
+            <div class="pat-picker" id="modalPatPicker">
+                <div style="color:var(--txt2);font-size:13px;">환자 목록이 없습니다</div>
+            </div>
+        </div>
+        <div class="modal-ftr">
+            <button class="btn btn-ghost" onclick="closeModal()">취소</button>
+            <button class="btn btn-green" id="modalConfirmBtn" onclick="confirmReassign()" disabled>재지정 후 업로드</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ────────────────────────────────────────────────────────
+//  State
+// ────────────────────────────────────────────────────────
+let bleDevice=null, mqttClient=null, rxChar=null, cmdChar=null;
+let webAudioChunks=[], receiveTimeout=null;
+let patientListString='', patients=[];
+let curRecPat='NONE', curRecType='HEART';
+let uploadCount=0, recCount=0;
+let recStartTime=0, recProgTimer=null;
+const REC_DUR=5000;
+
+// Stored WAV buffers for reassignment: Map<recordId, {buffer, type, timeTxt, sizeKb}>
+const wavStore = new Map();
+const WAV_STORE_MAX = 20;   // 최대 보관 개수 (메모리 누수 방지)
+let recIdCounter = 0;
+
+// Modal state
+let modalRecId = null;
+let modalSelectedPat = null;
+
+const SVC_UUID='19b10000-e8f2-537e-4f6c-d104768a1214';
+const AUD_UUID='19b10001-e8f2-537e-4f6c-d104768a1214';
+const CMD_UUID='19b10002-e8f2-537e-4f6c-d104768a1214';
+
+// ────────────────────────────────────────────────────────
+//  Canvas / Waveform
+// ────────────────────────────────────────────────────────
+const canvas=document.getElementById('waveCanvas');
+const ctx=canvas.getContext('2d');
+const W_PTS=600;
+let waveData=new Float32Array(W_PTS);
+let wavePtr=0;
+let isRecording=false;
+let curMode='HEART';
+
+function resizeCanvas(){
+    const r=canvas.getBoundingClientRect();
+    canvas.width =r.width *devicePixelRatio;
+    canvas.height=r.height*devicePixelRatio;
+}
+new ResizeObserver(resizeCanvas).observe(canvas);
+resizeCanvas();
+
+// Draw loop — idle shows a flat baseline only, recording shows real audio
+let rafId=null;
+function drawLoop(){
+    rafId=requestAnimationFrame(drawLoop);
+    render();
+}
+
+function render(){
+    const W=canvas.width/devicePixelRatio;
+    const H=canvas.height/devicePixelRatio;
+    const dpr=devicePixelRatio;
+
+    ctx.save();
+    ctx.scale(dpr,dpr);
+
+    // Background
+    ctx.fillStyle='#070c10';
+    ctx.fillRect(0,0,W,H);
+
+    // Grid
+    ctx.strokeStyle='#0d1a0d';
+    ctx.lineWidth=1;
+    for(let i=1;i<4;i++){const y=H*i/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+    for(let i=1;i<8;i++){const x=W*i/8;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+
+    // Zero line
+    ctx.strokeStyle='#182618';
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+
+    if(!isRecording){
+        // Idle: just show a clean flat baseline + gentle pulse dot
+        ctx.strokeStyle='#1e3a1e';
+        ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+        // Blinking dot on the right edge to show system is alive
+        const t=Date.now()/1000;
+        const alpha=0.3+0.3*Math.sin(t*2);
+        ctx.fillStyle=`rgba(63,185,80,${alpha})`;
+        ctx.beginPath();ctx.arc(W-16,H/2,3,0,Math.PI*2);ctx.fill();
+        ctx.restore();
+        return;
+    }
+
+    // Recording: render waveData ring buffer
+    const color=curMode==='HEART'?'#f85149':'#58a6ff';
+    const glowC=curMode==='HEART'?'rgba(248,81,73,':'rgba(88,166,255,';
+
+    // Glow
+    ctx.strokeStyle=glowC+'0.2)';
+    ctx.lineWidth=7;ctx.lineJoin='round';ctx.lineCap='round';
+    drawWavePath(W,H);ctx.stroke();
+
+    // Main
+    ctx.strokeStyle=color;ctx.lineWidth=1.8;
+    ctx.lineJoin='round';ctx.lineCap='round';
+    ctx.shadowColor=color;ctx.shadowBlur=8;
+    drawWavePath(W,H);ctx.stroke();
+    ctx.shadowBlur=0;
+
+    ctx.restore();
+}
+
+function drawWavePath(W,H){
+    ctx.beginPath();
+    for(let i=0;i<W_PTS;i++){
+        const idx=(wavePtr+i)%W_PTS;
+        const x=W*i/(W_PTS-1);
+        const amp=Math.max(-1,Math.min(1,waveData[idx]));
+        const y=H/2-amp*H*0.42;
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+}
+
+drawLoop();
+
+// ────────────────────────────────────────────────────────
+//  UI helpers
+// ────────────────────────────────────────────────────────
+function nowStr(){return new Date().toLocaleTimeString('ko-KR',{hour12:false});}
+
+function log(msg,type=''){
+    const a=document.getElementById('logArea');
+    const d=document.createElement('div');
+    d.className='ll l'+type;
+    // XSS 방지: textContent 사용 (BLE 명령에 HTML이 포함될 수 있음)
+    const ts=document.createElement('span');
+    ts.className='lt'; ts.textContent=nowStr();
+    const ms=document.createElement('span');
+    ms.className='lm'; ms.textContent=msg;
+    d.appendChild(ts); d.appendChild(ms);
+    a.appendChild(d);a.scrollTop=a.scrollHeight;
+    if(mqttClient?.connected)
+        mqttClient.publish('stethoscope/log','[WEB] '+msg);
+}
+function clearLog(){document.getElementById('logArea').innerHTML='';}
+
+function setBadge(id,cls,txt){
+    const el=document.getElementById(id);
+    el.className='badge '+cls;
+    el.innerHTML=`<span class="dot"></span>${txt}`;
+}
+
+function setMqttBadge(ok,txt){
+    setBadge('mqttBadge',ok?'ok':'err','MQTT '+(ok?'연결됨':txt));
+}
+
+// ────────────────────────────────────────────────────────
+//  Recording progress
+// ────────────────────────────────────────────────────────
+function startRec(pat,type){
+    isRecording=true; curMode=type;
+    curRecPat=pat; curRecType=type;
+    recStartTime=Date.now(); recCount++;
+    document.getElementById('recPatLbl').textContent=' '+pat;
+    document.getElementById('recTypeLbl').textContent=' ['+type+']';
+    document.getElementById('recBanner').classList.add('on');
+    document.body.classList.add('recording');
+    const wl=document.getElementById('waveModeLbl');
+    wl.textContent=type; wl.style.color=type==='HEART'?'#f85149':'#58a6ff';
+    document.getElementById('devMode').textContent=type==='HEART'?'❤️ HEART':'🫁 LUNG';
+    clearInterval(recProgTimer);
+    recProgTimer=setInterval(()=>{
+        const e=Date.now()-recStartTime;
+        document.getElementById('recProg').style.width=Math.min(e/REC_DUR*100,100)+'%';
+        document.getElementById('recTimer').textContent=(e/1000).toFixed(1)+'s';
+        if(e>REC_DUR+800)clearInterval(recProgTimer);
+    },50);
+}
+
+function stopRec(){
+    isRecording=false;
+    clearInterval(recProgTimer);
+    document.getElementById('recBanner').classList.remove('on');
+    document.getElementById('recProg').style.width='0%';
+    document.body.classList.remove('recording');
+    document.getElementById('recCnt').textContent=recCount;
+    const wl=document.getElementById('waveModeLbl');
+    wl.textContent='IDLE'; wl.style.color='#2a3d2a';
+    // Fade waveData back to zero gradually
+    for(let i=0;i<W_PTS;i++) waveData[i]*=0;
+}
+
+// ────────────────────────────────────────────────────────
+//  Patient table
+// ────────────────────────────────────────────────────────
+function renderPatients(){
+    const tb=document.getElementById('patTbody');
+    tb.innerHTML='';
+    if(!patients.length){
+        tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--txt2);padding:20px;">환자 없음</td></tr>';
+        return;
+    }
+    patients.forEach(p=>{
+        const sel=curRecPat===p.id;
+        const er=p.ward==='ER';
+        const tr=document.createElement('tr');
+        tr.className=sel?'sel':'';
+        tr.innerHTML=`<td class="pid">${p.id}</td><td>${p.name} <span style="color:var(--txt2);font-size:11px;">(${p.rawName||''})</span></td>
+            <td><span class="wbadge${er?' er':''}">${p.ward}</span></td>
+            <td style="font-size:11px;color:var(--txt2);">${sel?'✅ 선택됨':'대기'}</td>`;
+        tb.appendChild(tr);
+    });
+}
+
+// ────────────────────────────────────────────────────────
+//  Upload history + WAV store
+// ────────────────────────────────────────────────────────
+function addHistory(pat, type, wavBuffer, sizeKb){
+    const list=document.getElementById('histList');
+    if(list.querySelector('[data-empty]')) list.innerHTML='';
+
+    const recId='rec_'+(++recIdCounter);
+    const timeTxt=nowStr();
+    wavStore.set(recId,{buffer:wavBuffer,type,timeTxt,sizeKb,pat});
+    // 오래된 WAV 버퍼 정리 (메모리 누수 방지)
+    if(wavStore.size>WAV_STORE_MAX){
+        const oldest=wavStore.keys().next().value;
+        wavStore.delete(oldest);
+    }
+
+    const isH=type==='HEART';
+    const item=document.createElement('div');
+    item.className='hitem';
+    item.dataset.recid=recId;
+    item.innerHTML=`
+        <div class="hicon ${isH?'h':'l'}">${isH?'❤️':'🫁'}</div>
+        <div class="hmeta">
+            <div class="htopic" id="topic_${recId}">stethoscope/wav/${pat}/${type}</div>
+            <div class="htime">${timeTxt} · ${sizeKb.toFixed(1)} KB</div>
+        </div>
+        <div class="hactions">
+            <button class="btn btn-ghost btn-sm" onclick="openReassign('${recId}')">환자 재지정</button>
+        </div>`;
+    list.insertBefore(item,list.firstChild);
+
+    uploadCount++;
+    document.getElementById('uploadBadge').textContent=uploadCount+'건';
+    document.getElementById('uploadBadge').className='badge ok';
+}
+
+// ────────────────────────────────────────────────────────
+//  Reassign Modal
+// ────────────────────────────────────────────────────────
+function openReassign(recId){
+    const rec=wavStore.get(recId);
+    if(!rec) return;
+    modalRecId=recId;
+    modalSelectedPat=null;
+
+    document.getElementById('modalCurPat').textContent=rec.pat;
+    document.getElementById('modalCurType').textContent=rec.type;
+    document.getElementById('modalCurTime').textContent=rec.timeTxt;
+    document.getElementById('modalCurSize').textContent=rec.sizeKb.toFixed(1)+' KB';
+
+    // Render patient picker
+    const picker=document.getElementById('modalPatPicker');
+    picker.innerHTML='';
+    if(!patients.length){
+        picker.innerHTML='<div style="color:var(--txt2);font-size:13px;">환자 목록 없음 — EMR 서버에 먼저 연결하세요</div>';
+    } else {
+        patients.forEach(p=>{
+            const opt=document.createElement('div');
+            opt.className='pat-opt'+(p.id===rec.pat?' selected':'');
+            opt.dataset.pid=p.id;
+            const er=p.ward==='ER';
+            opt.innerHTML=`
+                <span class="pat-opt-id">${p.id}</span>
+                <span class="pat-opt-name">${p.name} <span style="color:var(--txt2);font-size:11px;">${p.rawName||''}</span></span>
+                <span class="pat-opt-ward"><span class="wbadge${er?' er':''}">${p.ward}</span></span>`;
+            opt.onclick=()=>selectModalPat(p.id);
+            picker.appendChild(opt);
+        });
+    }
+
+    document.getElementById('modalConfirmBtn').disabled=true;
+    document.getElementById('reassignModal').classList.add('open');
+}
+
+function selectModalPat(pid){
+    modalSelectedPat=pid;
+    document.querySelectorAll('.pat-opt').forEach(el=>{
+        el.classList.toggle('selected', el.dataset.pid===pid);
+    });
+    document.getElementById('modalConfirmBtn').disabled=false;
+}
+
+function closeModal(){
+    document.getElementById('reassignModal').classList.remove('open');
+    modalRecId=null; modalSelectedPat=null;
+}
+
+// Close modal on overlay click
+document.getElementById('reassignModal').addEventListener('click',function(e){
+    if(e.target===this) closeModal();
+});
+
+function confirmReassign(){
+    if(!modalRecId||!modalSelectedPat) return;
+    const rec=wavStore.get(modalRecId);
+    if(!rec){ closeModal(); return; }
+
+    const newPat=modalSelectedPat;
+    const topic=`stethoscope/wav/${newPat}/${rec.type}`;
+
+    if(mqttClient?.connected){
+        mqttClient.publish(topic,new Uint8Array(rec.buffer));
+        log(`재지정 업로드 완료 → ${topic} (${rec.sizeKb.toFixed(1)} KB)`,'ok');
+    } else {
+        log('MQTT 미연결 — 재지정 업로드 실패','err');
+    }
+
+    // Update stored record
+    const oldPat=rec.pat;
+    rec.pat=newPat;
+    wavStore.set(modalRecId,rec);
+
+    // Update history item topic label
+    const topicEl=document.getElementById('topic_'+modalRecId);
+    if(topicEl){
+        topicEl.textContent=topic;
+        topicEl.style.color=newPat!==oldPat?'var(--yellow)':'';
+    }
+
+    log(`환자 재지정: ${oldPat} → ${newPat}`,'warn');
+    closeModal();
+}
+
+// ────────────────────────────────────────────────────────
+//  MQTT
+// ────────────────────────────────────────────────────────
+function connectMQTT(){
+    const btn=document.getElementById('btnMqtt');
+    btn.disabled=true; btn.textContent='⏳ 연결 중...';
+    setMqttBadge(false,'연결 중...');
+
+    mqttClient=mqtt.connect('ws://114.206.167.99:9001');
+    mqttClient.on('connect',()=>{
+        log('EMR 서버 연결 성공 — 환자 목록 요청 중','ok');
+        setMqttBadge(true,'연결됨');
+        btn.textContent='✅ EMR 연결됨';
+        mqttClient.subscribe('stethoscope/res_patients');
+        mqttClient.publish('stethoscope/req_patients','give_me_list');
+    });
+    mqttClient.on('message',(topic,msg)=>{
+        if(topic==='stethoscope/res_patients') handlePatList(msg.toString());
+    });
+    mqttClient.on('error',e=>{
+        log('MQTT 오류: '+e.message,'err');
+        setMqttBadge(false,'오류');
+        btn.disabled=false; btn.textContent='🌐 EMR 서버 연결';
+    });
+    mqttClient.on('close',()=>{
+        setMqttBadge(false,'연결 끊김');
+        btn.disabled=false; btn.textContent='🌐 EMR 서버 연결';
+    });
+}
+
+function handlePatList(raw){
+    const nameMap={'김':'Kim','이':'Lee','박':'Park','최':'Choi','정':'Jung'};
+    try{
+        const data=JSON.parse(raw);
+        if(!data||!data.length){log('대기 환자 없음','warn');patientListString='PAT:NONE';return;}
+        patients=data.map(p=>{
+            let name='Pat';
+            for(const[k,v] of Object.entries(nameMap)){if(p.name.includes(k)){name=v;break;}}
+            let ward=p.ward.replace(/[^0-9]/g,'');
+            if(p.ward.includes('응급'))ward='ER';
+            return{id:p.patient_id,name,ward,rawName:p.name};
+        });
+        patientListString='PAT:'+patients.map(p=>`${p.id}|${p.name}|${p.ward}`).join(',');
+        const pb=document.getElementById('patBadge');
+        pb.textContent=patients.length+'명'; pb.className='badge ok';
+        renderPatients();
+        log(`환자 목록 수신 (${patients.length}명)`,'ok');
+        log('이제 청진기 BLE를 연결하세요','info');
+    }catch(e){log('환자 목록 파싱 실패: '+e.message,'err');}
+}
+
+// ────────────────────────────────────────────────────────
+//  BLE
+// ────────────────────────────────────────────────────────
+async function connectBLE(){
+    if(!patientListString){alert('먼저 EMR 서버에 연결해서 환자 목록을 받아오세요!');return;}
+    const btn=document.getElementById('btnBle');
+    btn.disabled=true; btn.textContent='⏳ 스캔 중...';
+    try{
+        bleDevice=await navigator.bluetooth.requestDevice({
+            acceptAllDevices:true,optionalServices:[SVC_UUID]
+        });
+        bleDevice.addEventListener('gattserverdisconnected',onBleDisc);
+        const server=await bleDevice.gatt.connect();
+        const name=bleDevice.name||'AI_Stetho';
+        document.getElementById('devName').textContent=name;
+        document.getElementById('devConn').textContent=nowStr();
+        document.getElementById('devMode').textContent='HEART (기본)';
+        setBadge('bleBadge','ok','BLE: '+name);
+        log('청진기 연결 성공: '+name,'ok');
+        const svc=await server.getPrimaryService(SVC_UUID);
+        rxChar=await svc.getCharacteristic(AUD_UUID);
+        cmdChar=await svc.getCharacteristic(CMD_UUID);
+        await rxChar.startNotifications();
+        await cmdChar.startNotifications();
+        await cmdChar.writeValue(new TextEncoder().encode(patientListString));
+        log('환자 목록 전송 완료','ok');
+        cmdChar.addEventListener('characteristicvaluechanged',onCmd);
+        rxChar.addEventListener('characteristicvaluechanged',onAudio);
+        btn.textContent='✅ BLE 연결됨';
+    }catch(e){
+        log('BLE 연결 실패: '+e,'err');
+        setBadge('bleBadge','err','BLE 미연결');
+        btn.disabled=false; btn.textContent='📡 BLE 연결';
+    }
+}
+
+function onBleDisc(){
+    setBadge('bleBadge','err','BLE 연결 끊김');
+    // 녹음 중 끊김: 타이머 취소 + 불완전 오디오 폐기 (서버에 잘린 파일 전송 방지)
+    clearTimeout(receiveTimeout);
+    if(isRecording && webAudioChunks.length>0){
+        log(`녹음 중 BLE 끊김 — 불완전 오디오 ${webAudioChunks.length}청크 폐기`,'err');
+    }
+    webAudioChunks=[];
+    stopRec();
+    log('블루투스 연결이 끊어졌습니다','err');
+    document.getElementById('devLastCmd').textContent='연결 끊김';
+    document.getElementById('btnBle').disabled=false;
+    document.getElementById('btnBle').textContent='📡 BLE 연결';
+}
+
+function onCmd(event){
+    const cmd=new TextDecoder('utf-8').decode(event.target.value);
+    document.getElementById('devLastCmd').textContent=cmd;
+    log('CMD ← '+cmd,'info');
+    if(cmd.startsWith('REC:')){
+        const parts=cmd.split(':');
+        if(parts.length===3){
+            const pat=parts[1],type=parts[2];
+            curRecPat=pat; curRecType=type;
+            webAudioChunks=[];
+            document.getElementById('devPat').textContent=pat;
+            renderPatients();
+            startRec(pat,type);
+            if(pat==='NONE'){
+                log(`[주의] 환자 미선택 상태로 녹음! 업로드 후 "환자 재지정"을 사용하세요`,'err');
+            }
+            log(`녹음 시작 — 환자:${pat}  부위:${type}`,'warn');
+        }
+    } else if(cmd==='REC_DONE'){
+        stopRec(); log('녹음 완료 (REC_DONE)','ok');
+    } else if(cmd.startsWith('REC_FAIL')){
+        // 펌웨어는 "REC_FAIL:DISCONNECTED" 형식으로 전송
+        const reason=cmd.includes(':')?cmd.split(':').slice(1).join(':'):'UNKNOWN';
+        stopRec();
+        clearTimeout(receiveTimeout); webAudioChunks=[];  // 불완전 오디오 폐기
+        log(`녹음 실패 — ${reason} (REC_FAIL)`,'err');
+    } else if(cmd.startsWith('SIG:')){
+        // 펌웨어가 SIG: 를 BLE로 전송하지 않으므로 무시
+    }
+}
+
+function onAudio(event){
+    const raw=new Uint8Array(event.target.value.buffer);
+    webAudioChunks.push(raw);
+    // Feed into waveform ring buffer
+    for(let i=0;i+1<raw.length;i+=2){
+        const s16=(raw[i+1]<<8)|raw[i];
+        waveData[wavePtr%W_PTS]=(s16>32767?s16-65536:s16)/32768.0;
+        wavePtr++;
+    }
+    clearTimeout(receiveTimeout);
+    receiveTimeout=setTimeout(()=>{
+        stopRec();
+        log('오디오 수신 완료, 서버 전송 중...','info');
+        sendWav();
+    },500);
+}
+
+// ────────────────────────────────────────────────────────
+//  WAV encode & MQTT publish
+// ────────────────────────────────────────────────────────
+function buildWav(chunks){
+    const dataSize=chunks.reduce((a,c)=>a+c.length,0);
+    const buf=new ArrayBuffer(44+dataSize*2);
+    const v=new DataView(buf);
+    const ws=(dv,o,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));};
+    ws(v,0,'RIFF');v.setUint32(4,36+dataSize*2,true);
+    ws(v,8,'WAVE');ws(v,12,'fmt ');
+    v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,2,true);
+    // 펌웨어 TARGET_RATE=2000 (16kHz÷8 decimation)
+    v.setUint32(24,2000,true);v.setUint32(28,2000*2*2,true);
+    v.setUint16(32,4,true);v.setUint16(34,16,true);
+    ws(v,36,'data');v.setUint32(40,dataSize*2,true);
+    const arr=new Uint8Array(dataSize);
+    let off=0;
+    for(const c of chunks){arr.set(c,off);off+=c.length;}
+    const dv=new DataView(buf,44);
+    let vo=0;
+    for(let i=0;i+1<arr.length;i+=2){
+        const s=(arr[i+1]<<8)|arr[i];
+        dv.setInt16(vo,s,true);dv.setInt16(vo+2,s,true);vo+=4;
+    }
+    return buf;
+}
+
+function sendWav(){
+    const dataSize=webAudioChunks.reduce((a,c)=>a+c.length,0);
+    if(!dataSize){log('오디오 없음','warn');return;}
+
+    const wavBuf=buildWav(webAudioChunks);
+    const sizeKb=wavBuf.byteLength/1024;
+
+    if(mqttClient?.connected){
+        const topic=`stethoscope/wav/${curRecPat}/${curRecType}`;
+        mqttClient.publish(topic,new Uint8Array(wavBuf));
+        log(`업로드 완료 → ${topic} (${sizeKb.toFixed(1)} KB)`,'ok');
+        if(curRecPat==='NONE'){
+            log(`[주의] "NONE" 환자로 업로드됨 — 기록에서 "환자 재지정"을 사용하세요`,'err');
+        }
+    } else {
+        log('MQTT 미연결 — 업로드 실패 (기록에는 저장됨)','err');
+    }
+
+    // Always store for possible reassignment
+    addHistory(curRecPat, curRecType, wavBuf, sizeKb);
+    webAudioChunks=[];
+}
+</script>
+</body>
+</html>

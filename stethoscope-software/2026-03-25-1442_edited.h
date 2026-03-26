@@ -15,6 +15,13 @@
  *   - Bug fix: setMinPreferred called twice (second should be setMaxPreferred)
  *   - One statement per line for readability and debugging
  *   - Header guard added
+ *   - NVS persistent storage for mode, selected patient, BLE state
+ *   - Respiratory Rate (RR) detection via energy envelope onset detection
+ *   - drawRR() / drawBreathIndicator() for lung mode UI
+ *   - Signal quality indicator (3-bar: None/Weak/Good) for heart & lung modes
+ *   - BLE disconnect during recording: REC_FAIL notification + UI feedback
+ *   - REC_DONE notification on successful recording completion
+ *   - Watchdog Timer (esp_task_wdt) for audioTask and loop()
  */
 
 #ifndef STETHO_FIRMWARE_2026_03_25_1442_H
@@ -30,6 +37,8 @@
 #include <SPI.h>
 #include <math.h>
 #include <esp_sleep.h>
+#include <esp_task_wdt.h>
+#include <Preferences.h>
 
 // ══════════════════════════════════════════════════════════
 //  Hardware Pin Configuration (AV Rule 20: constexpr over #define)
@@ -61,6 +70,13 @@ static constexpr unsigned long SHORT_PRESS_MIN_MS      = 50UL;
 static constexpr unsigned long DEBOUNCE_DELAY_MS       = 200UL;
 static constexpr unsigned long PATIENT_SELECT_DELAY_MS = 1000UL;
 static constexpr unsigned long REC_HEADER_DELAY_MS     = 100UL;
+static constexpr unsigned long REC_FAIL_DISPLAY_MS     = 1500UL;
+
+// ══════════════════════════════════════════════════════════
+//  Watchdog Timer Configuration
+// ══════════════════════════════════════════════════════════
+static constexpr int WDT_TIMEOUT_SEC       = 10;    // 10초 내 feed 없으면 reset
+static constexpr int WDT_LOOP_TIMEOUT_SEC  = 30;    // loop() 30초 내 feed 없으면 reset
 
 // ══════════════════════════════════════════════════════════
 //  Audio / DSP Constants
@@ -119,6 +135,27 @@ static constexpr float BPM_DISPLAY_MAX  = 250.0f;
 static constexpr float BPM_CHANGE_THRESHOLD = 0.5f;
 
 // ══════════════════════════════════════════════════════════
+//  RR (Respiratory Rate) DSP Constants
+//  호흡 주기: 에너지 envelope의 상승 에지 간격으로 측정
+//  정상 성인 12~20회/min = 3~5초/cycle
+// ══════════════════════════════════════════════════════════
+static constexpr int   RR_RMS_WINDOW       = 400;    // RMS 윈도우 200ms (2kHz * 0.2)
+static constexpr int   RR_SMOOTH_WINDOW    = 1000;   // 이동평균 500ms (2kHz * 0.5)
+static constexpr float RR_NOISE_FLOOR      = 0.002f; // 최소 에너지 (무음 판별)
+static constexpr float RR_THRESHOLD_RATIO  = 0.30f;  // running_max 대비 threshold 비율
+static constexpr int   RR_REFRACTORY       = 3000;   // 최소 1.5초 간격 (2kHz * 1.5) → ~40회/min 상한
+static constexpr float RR_RUNNING_MAX_DECAY = 0.9997f;
+static constexpr float RR_TIMEOUT_DECAY    = 0.5f;
+static constexpr unsigned long RR_TIMEOUT_MS = 10000UL; // 10초 무호흡 시 reset
+static constexpr float RR_CYCLE_MIN_MS     = 1500.0f;  // ~40 breaths/min 상한
+static constexpr float RR_CYCLE_MAX_MS     = 12000.0f; // ~5 breaths/min 하한
+static constexpr float RR_EMA_OLD          = 0.35f;
+static constexpr float RR_EMA_NEW          = 0.65f;
+static constexpr float RR_DISPLAY_MIN      = 6.0f;
+static constexpr float RR_DISPLAY_MAX      = 45.0f;
+static constexpr float RR_CHANGE_THRESHOLD = 0.5f;
+
+// ══════════════════════════════════════════════════════════
 //  Waveform Display Layout
 // ══════════════════════════════════════════════════════════
 static constexpr int WAVE_Y_TOP    = 75;
@@ -131,6 +168,14 @@ static constexpr int DRAW_INTERVAL_MS = 15;
 
 static constexpr int BPM_Y = 165;
 static constexpr int BPM_H = 40;
+
+// Signal quality indicator position (waveform 영역 바로 위)
+static constexpr int SIG_QUALITY_Y     = 65;
+static constexpr int SIG_BAR_WIDTH     = 3;
+static constexpr int SIG_BAR_GAP       = 2;
+static const int SIG_BAR_HEIGHTS[] = {4, 7, 10};  // 3단 바 높이
+static constexpr int SIG_BAR_COUNT = 3;
+static constexpr unsigned long SIG_UPDATE_INTERVAL_MS = 300UL;
 
 // ══════════════════════════════════════════════════════════
 //  UI Layout Constants (AV Rule 27: no magic numbers)
@@ -153,6 +198,11 @@ static constexpr int BPM_HEART_CIRCLE_R = 4;
 static constexpr int BPM_TEXT_OFFSET_X  = 25;
 static constexpr int BPM_UNIT_OFFSET_X  = 20;
 
+// RR display (lung mode — same Y position as BPM)
+static constexpr int RR_LUNG_ICON_OFFSET_X = 42;
+static constexpr int RR_TEXT_OFFSET_X      = 25;
+static constexpr int RR_UNIT_OFFSET_X      = 22;
+
 static constexpr uint16_t COLOR_HIGHLIGHT_BG = 0x03E0;
 
 // TFT sleep/wake commands
@@ -173,6 +223,14 @@ static constexpr int     BLE_MTU_SIZE         = 512;
 static constexpr int AUDIO_TASK_STACK_SIZE = 10000;
 static constexpr int AUDIO_TASK_PRIORITY   = 2;
 static constexpr int AUDIO_TASK_CORE       = 0;
+
+// ══════════════════════════════════════════════════════════
+//  NVS (Non-Volatile Storage) Configuration
+// ══════════════════════════════════════════════════════════
+static const char* const NVS_NAMESPACE    = "stetho";
+static const char* const NVS_KEY_MODE     = "mode";
+static const char* const NVS_KEY_PATIENT  = "patient";
+static const char* const NVS_KEY_BLE_ON   = "bleOn";
 
 // ══════════════════════════════════════════════════════════
 //  Application State Machine
@@ -197,6 +255,12 @@ enum ButtonEvent {
     BTN_LONG       = 2
 };
 
+enum SignalLevel {
+    SIG_NONE = 0,
+    SIG_WEAK = 1,
+    SIG_GOOD = 2
+};
+
 // ══════════════════════════════════════════════════════════
 //  Patient Data Structure
 // ══════════════════════════════════════════════════════════
@@ -210,6 +274,7 @@ struct PatientInfo {
 //  Global State
 // ══════════════════════════════════════════════════════════
 static TFT_eSPI tft = TFT_eSPI();
+static Preferences nvs;
 
 static BLEServer*         pServer    = nullptr;  // AV Rule 15: nullptr over NULL
 static BLECharacteristic* pAudioChar = nullptr;
@@ -220,10 +285,12 @@ static volatile bool     isBleOn          = false;
 static volatile int      currentMode      = MODE_HEART;
 static volatile bool     uiNeedsUpdate    = true;
 static volatile bool     isRecording5Sec  = false;
+static volatile bool     recFailed        = false;   // BLE 끊김으로 녹음 실패
 static volatile AppState currentState     = ACTIVE;
 static volatile int16_t  sharedAveragedSample = 0;
 
 static unsigned long recordStartTime = 0;
+static unsigned long recFailDisplayTime = 0;
 
 static PatientInfo patientList[MAX_PATIENTS];
 static int  patientCount    = 0;
@@ -244,6 +311,7 @@ static TaskHandle_t audioTaskHandle;
 
 // Forward declarations
 void drawUI();
+static void clearRR();
 
 // ══════════════════════════════════════════════════════════
 //  Button Class (AV Rule 67: private data, public accessors)
@@ -314,6 +382,46 @@ static Button btnL(PIN_BTN_L_MODE);
 static Button btnR(PIN_BTN_R_RECORD);
 
 // ══════════════════════════════════════════════════════════
+//  NVS Helper Functions
+// ══════════════════════════════════════════════════════════
+static void nvsLoad()
+{
+    nvs.begin(NVS_NAMESPACE, true);  // read-only
+
+    currentMode = nvs.getInt(NVS_KEY_MODE, MODE_HEART);
+    if (currentMode < MODE_HEART || currentMode > MODE_COUNT) {
+        currentMode = MODE_HEART;
+    }
+
+    selectedPatient = nvs.getString(NVS_KEY_PATIENT, "NONE");
+    isBleOn = nvs.getBool(NVS_KEY_BLE_ON, false);
+
+    nvs.end();
+    Serial.println("[NVS] Settings loaded");
+}
+
+static void nvsSaveMode()
+{
+    nvs.begin(NVS_NAMESPACE, false);  // read-write
+    nvs.putInt(NVS_KEY_MODE, currentMode);
+    nvs.end();
+}
+
+static void nvsSavePatient()
+{
+    nvs.begin(NVS_NAMESPACE, false);
+    nvs.putString(NVS_KEY_PATIENT, selectedPatient);
+    nvs.end();
+}
+
+static void nvsSaveBle()
+{
+    nvs.begin(NVS_NAMESPACE, false);
+    nvs.putBool(NVS_KEY_BLE_ON, isBleOn);
+    nvs.end();
+}
+
+// ══════════════════════════════════════════════════════════
 //  State Management
 // ══════════════════════════════════════════════════════════
 static void changeState(AppState newState)
@@ -332,6 +440,7 @@ static volatile float dsp_bpm         = 0.0f;
 static volatile float dsp_instant_bpm = 0.0f;
 static volatile bool  dsp_beat_flag   = false;
 static volatile int   dsp_beat_count  = 0;
+static volatile bool  dsp_signal_ok   = false;  // 심음 신호 품질 (DSP에서 갱신)
 
 static float _hp_x1 = 0.0f;
 static float _hp_x2 = 0.0f;
@@ -441,6 +550,7 @@ static void dsp_process(int16_t raw16)
     }
 
     const bool signal_ok = (var > DSP_SIGNAL_VAR_MIN) && (envelope > DSP_NOISE_FLOOR);
+    dsp_signal_ok = signal_ok;
     const unsigned long now = millis();
 
     // BPM timeout: reset if no peak for too long
@@ -488,6 +598,128 @@ static void dsp_process(int16_t raw16)
         }
         _last_peak_ms       = now;
         _samples_since_peak = 0;
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+//  DSP (Respiratory Rate Detection)
+//  에너지 envelope의 상승 에지(조용→소리) 간격으로 호흡 주기 측정
+// ══════════════════════════════════════════════════════════
+static volatile float rr_rate          = 0.0f;   // 현재 호흡수 (breaths/min)
+static volatile float rr_instant       = 0.0f;   // 순간 호흡수
+static volatile bool  rr_breath_flag   = false;   // UI용 호흡 감지 플래그
+static volatile int   rr_breath_count  = 0;
+static volatile bool  rr_signal_ok     = false;   // 폐음 신호 품질
+
+// RMS 에너지 계산용 순환 버퍼
+static float _rr_rms_buf[RR_RMS_WINDOW]   = {0};
+static int   _rr_rms_idx   = 0;
+static float _rr_rms_sum   = 0.0f;
+
+// 이동평균 스무딩용 순환 버퍼
+static float _rr_smooth_buf[RR_SMOOTH_WINDOW] = {0};
+static int   _rr_smooth_idx = 0;
+static float _rr_smooth_sum = 0.0f;
+
+// 상태 변수
+static float        _rr_running_max       = 0.0f;
+static int          _rr_samples_since     = 0;
+static bool         _rr_in_breath         = false;  // 현재 호흡 구간인지
+static unsigned long _rr_last_onset_ms    = 0;      // 마지막 호흡 시작 시각
+
+static void rr_reset()
+{
+    memset(_rr_rms_buf, 0, sizeof(_rr_rms_buf));
+    _rr_rms_idx = 0;
+    _rr_rms_sum = 0.0f;
+
+    memset(_rr_smooth_buf, 0, sizeof(_rr_smooth_buf));
+    _rr_smooth_idx = 0;
+    _rr_smooth_sum = 0.0f;
+
+    _rr_running_max    = 0.0f;
+    _rr_samples_since  = 0;
+    _rr_in_breath      = false;
+    _rr_last_onset_ms  = 0;
+
+    rr_rate         = 0.0f;
+    rr_instant      = 0.0f;
+    rr_breath_flag  = false;
+    rr_breath_count = 0;
+}
+
+static void rr_process(int16_t raw16)
+{
+    const float s = static_cast<float>(raw16) / SAMPLE_NORMALIZE;
+
+    // ── Step 1: 단기 RMS 에너지 (200ms 윈도우) ──
+    const float s2 = s * s;
+    _rr_rms_sum -= _rr_rms_buf[_rr_rms_idx];
+    _rr_rms_buf[_rr_rms_idx] = s2;
+    _rr_rms_sum += s2;
+    _rr_rms_idx = (_rr_rms_idx + 1) % RR_RMS_WINDOW;
+
+    const float rms = sqrtf(_rr_rms_sum / static_cast<float>(RR_RMS_WINDOW));
+
+    // ── Step 2: 이동평균 스무딩 (500ms 윈도우) ──
+    _rr_smooth_sum -= _rr_smooth_buf[_rr_smooth_idx];
+    _rr_smooth_buf[_rr_smooth_idx] = rms;
+    _rr_smooth_sum += rms;
+    _rr_smooth_idx = (_rr_smooth_idx + 1) % RR_SMOOTH_WINDOW;
+
+    const float envelope = _rr_smooth_sum / static_cast<float>(RR_SMOOTH_WINDOW);
+
+    // 신호 품질 판정
+    rr_signal_ok = (envelope > RR_NOISE_FLOOR);
+
+    // ── Step 3: 적응형 threshold ──
+    _rr_running_max *= RR_RUNNING_MAX_DECAY;
+    if (envelope > _rr_running_max) {
+        _rr_running_max = envelope;
+    }
+
+    const float threshold = _rr_running_max * RR_THRESHOLD_RATIO;
+    const unsigned long now = millis();
+    _rr_samples_since++;
+
+    // Timeout: 10초 이상 호흡 미감지 시 reset
+    if (_rr_last_onset_ms > 0 && (now - _rr_last_onset_ms) > RR_TIMEOUT_MS) {
+        rr_rate    = 0.0f;
+        rr_instant = 0.0f;
+        rr_breath_count = 0;
+        _rr_last_onset_ms = 0;
+        _rr_running_max *= RR_TIMEOUT_DECAY;
+    }
+
+    // ── Step 4: 상승 에지 감지 (조용 → 호흡 시작) ──
+    if (!_rr_in_breath
+        && envelope > threshold
+        && envelope > RR_NOISE_FLOOR
+        && _rr_samples_since > RR_REFRACTORY) {
+
+        // 호흡 시작 감지
+        _rr_in_breath = true;
+        rr_breath_count++;
+        rr_breath_flag = true;
+
+        if (_rr_last_onset_ms > 0) {
+            const float cycle_ms = static_cast<float>(now - _rr_last_onset_ms);
+            if (cycle_ms > RR_CYCLE_MIN_MS && cycle_ms < RR_CYCLE_MAX_MS) {
+                rr_instant = 60000.0f / cycle_ms;
+                if (rr_rate < 1.0f) {
+                    rr_rate = rr_instant;
+                } else {
+                    rr_rate = rr_rate * RR_EMA_OLD
+                            + rr_instant * RR_EMA_NEW;
+                }
+            }
+        }
+        _rr_last_onset_ms  = now;
+        _rr_samples_since  = 0;
+    }
+    else if (_rr_in_breath && envelope < threshold * 0.6f) {
+        // 히스테리시스: threshold의 60%로 내려가야 "조용" 판정
+        _rr_in_breath = false;
     }
 }
 
@@ -591,12 +823,16 @@ static void audioTask(void* pvParameters)
 {
     (void)pvParameters;  // AV Rule 142: unused parameter
 
+    // Register this task with WDT
+    esp_task_wdt_add(nullptr);
+
     int   prevMode     = -1;
     float prev_heart_y = 0.0f;
     float prev_lung_x  = 0.0f;
     float prev_lung_y  = 0.0f;
 
     for (;;) {
+        esp_task_wdt_reset();  // Feed watchdog every iteration
         // Decimate from 16kHz to 2kHz
         int32_t sum = 0;
         for (int i = 0; i < DECIMATION; i++) {
@@ -641,15 +877,19 @@ static void audioTask(void* pvParameters)
 
         sharedAveragedSample = final_audio;
 
-        // DSP heart rate detection (heart mode only)
+        // DSP detection (mode-specific)
         if (currentMode != prevMode) {
             if (currentMode == MODE_HEART) {
                 dsp_reset();
+            } else if (currentMode == MODE_LUNG) {
+                rr_reset();
             }
             prevMode = currentMode;
         }
         if (currentMode == MODE_HEART) {
             dsp_process(final_audio);
+        } else if (currentMode == MODE_LUNG) {
+            rr_process(final_audio);
         }
 
         // BLE streaming during 5-second recording
@@ -697,6 +937,9 @@ void setup()
 
     btnL.begin();
     btnR.begin();
+
+    // Load saved settings from NVS
+    nvsLoad();
 
     // I2S configuration for ICS43434 microphone
     const i2s_config_t i2s_config = {
@@ -758,6 +1001,12 @@ void setup()
     pAdvertising->setMinPreferred(BLE_ADV_MIN_INTERVAL);
     pAdvertising->setMaxPreferred(BLE_ADV_MAX_INTERVAL);  // BUG FIX: was setMinPreferred (overwrote previous value)
 
+    // Restore BLE advertising if it was on before reboot/sleep
+    if (isBleOn) {
+        BLEDevice::startAdvertising();
+        Serial.println("[NVS] BLE advertising restored");
+    }
+
     // Launch audio task on Core 0
     audioTaskHandle = xTaskCreateStaticPinnedToCore(
         audioTask,
@@ -769,6 +1018,17 @@ void setup()
         &audioTaskBuffer,
         AUDIO_TASK_CORE
     );
+
+    // Initialize Watchdog Timer
+    // WDT config for ESP-IDF v5+ (Arduino ESP32 3.x)
+    const esp_task_wdt_config_t wdt_config = {
+        .timeout_ms      = WDT_TIMEOUT_SEC * 1000,
+        .idle_core_mask  = 0,        // 아이들 태스크 감시 안함
+        .trigger_panic   = true      // timeout 시 자동 reset
+    };
+    esp_task_wdt_init(&wdt_config);
+    esp_task_wdt_add(nullptr);  // Register loop() task (runs on current task)
+    Serial.println("[WDT] Watchdog initialized");
 }
 
 // ══════════════════════════════════════════════════════════
@@ -888,6 +1148,7 @@ static void clearBPM()
     tft.fillRect(0, BPM_Y, tft.width(), BPM_H, TFT_BLACK);
     lastDisplayedBPM  = -1.0f;
     lastBpmDrawTime   = 0;
+    clearRR();
 }
 
 static unsigned long lastBeatFlash = 0;
@@ -905,6 +1166,150 @@ static void drawBeatIndicator()
     } else if (lastBeatFlash > 0 && (millis() - lastBeatFlash) > BEAT_FLASH_DURATION_MS) {
         tft.fillCircle(BEAT_INDICATOR_X, BEAT_INDICATOR_Y, BEAT_INDICATOR_R, TFT_BLACK);
         lastBeatFlash = 0;
+    }
+}
+
+// ── RR Display (Lung mode) ──
+static float lastDisplayedRR = -1.0f;
+static unsigned long lastRrDrawTime = 0;
+
+static void drawRR()
+{
+    if (currentState != ACTIVE || currentMode != MODE_LUNG || isRecording5Sec) {
+        return;
+    }
+    if ((millis() - lastRrDrawTime) < BPM_UPDATE_INTERVAL_MS) {
+        return;
+    }
+    lastRrDrawTime = millis();
+
+    const float rr = rr_rate;
+    if (fabsf(rr - lastDisplayedRR) < RR_CHANGE_THRESHOLD && lastDisplayedRR >= 0.0f) {
+        return;
+    }
+    lastDisplayedRR = rr;
+
+    const int cx = tft.width() / 2;
+    tft.fillRect(0, BPM_Y, tft.width(), BPM_H, TFT_BLACK);
+
+    if (rr > RR_DISPLAY_MIN && rr < RR_DISPLAY_MAX) {
+        // 폐 아이콘 (간략화된 두 원호)
+        const int lx = cx - RR_LUNG_ICON_OFFSET_X;
+        const int ly = BPM_Y + 12;
+        tft.drawCircle(lx - 3, ly, 5, TFT_CYAN);
+        tft.drawCircle(lx + 3, ly, 5, TFT_CYAN);
+        tft.drawFastVLine(lx, ly + 2, 6, TFT_CYAN);
+
+        // RR 값
+        tft.setTextDatum(ML_DATUM);
+        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+        tft.setTextPadding(60);
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%d", static_cast<int>(rr));
+        tft.drawString(buf, cx - RR_TEXT_OFFSET_X, BPM_Y + 15, 4);
+
+        tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        tft.setTextPadding(0);
+        tft.drawString("br/m", cx + RR_UNIT_OFFSET_X, BPM_Y + 17, 2);
+    } else {
+        tft.setTextDatum(MC_DATUM);
+        tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        tft.setTextPadding(tft.width());
+        tft.drawString("measuring...", cx, BPM_Y + 15, 2);
+        tft.setTextPadding(0);
+    }
+}
+
+static void clearRR()
+{
+    lastDisplayedRR = -1.0f;
+    lastRrDrawTime  = 0;
+}
+
+// ── Breath Indicator (Lung mode, status bar) ──
+static unsigned long lastBreathFlash = 0;
+
+static void drawBreathIndicator()
+{
+    if (currentState != ACTIVE || currentMode != MODE_LUNG) {
+        return;
+    }
+
+    if (rr_breath_flag) {
+        rr_breath_flag = false;
+        tft.fillCircle(BEAT_INDICATOR_X, BEAT_INDICATOR_Y, BEAT_INDICATOR_R, TFT_CYAN);
+        lastBreathFlash = millis();
+    } else if (lastBreathFlash > 0 && (millis() - lastBreathFlash) > BEAT_FLASH_DURATION_MS) {
+        tft.fillCircle(BEAT_INDICATOR_X, BEAT_INDICATOR_Y, BEAT_INDICATOR_R, TFT_BLACK);
+        lastBreathFlash = 0;
+    }
+}
+
+// ── Signal Quality Indicator ──
+// 3단 바 표시: ■□□ = No Signal, ■■□ = Weak, ■■■ = Good
+static SignalLevel lastSigLevel = SIG_NONE;
+static unsigned long lastSigDrawTime = 0;
+
+static SignalLevel getSignalLevel()
+{
+    if (currentMode == MODE_HEART) {
+        if (!dsp_signal_ok) {
+            return SIG_NONE;
+        }
+        // envelope 크기로 Good/Weak 구분: BPM 감지 중이면 Good
+        if (dsp_bpm > BPM_DISPLAY_MIN) {
+            return SIG_GOOD;
+        }
+        return SIG_WEAK;
+    }
+    else if (currentMode == MODE_LUNG) {
+        if (!rr_signal_ok) {
+            return SIG_NONE;
+        }
+        if (rr_rate > RR_DISPLAY_MIN) {
+            return SIG_GOOD;
+        }
+        return SIG_WEAK;
+    }
+    return SIG_NONE;
+}
+
+static void drawSignalQuality()
+{
+    if (currentState != ACTIVE || currentMode == MODE_PATIENT || isRecording5Sec) {
+        return;
+    }
+    if ((millis() - lastSigDrawTime) < SIG_UPDATE_INTERVAL_MS) {
+        return;
+    }
+    lastSigDrawTime = millis();
+
+    const SignalLevel level = getSignalLevel();
+    if (level == lastSigLevel) {
+        return;
+    }
+    lastSigLevel = level;
+
+    // 표시 위치: 화면 우측 상단 (BT 아이콘 왼쪽)
+    const int baseX = tft.width() - 35;
+    const int baseY = SIG_QUALITY_Y;
+
+    // 배경 지우기
+    tft.fillRect(baseX - 2, baseY - 12, 20, 14, TFT_BLACK);
+
+    // 모드별 색상
+    const uint16_t activeColor = (currentMode == MODE_HEART) ? TFT_RED : TFT_CYAN;
+
+    for (int i = 0; i < SIG_BAR_COUNT; i++) {
+        const int x = baseX + i * (SIG_BAR_WIDTH + SIG_BAR_GAP);
+        const int h = SIG_BAR_HEIGHTS[i];
+        const int y = baseY - h;
+
+        if (i <= static_cast<int>(level)) {
+            tft.fillRect(x, y, SIG_BAR_WIDTH, h, activeColor);
+        } else {
+            tft.fillRect(x, y, SIG_BAR_WIDTH, h, 0x3186);  // 어두운 회색
+        }
     }
 }
 
@@ -1007,6 +1412,8 @@ void drawUI()
         lastDrawnBle   = isBleOn;
         lastDrawnState = currentState;
         clearBPM();
+        lastSigLevel = SIG_NONE;
+        lastSigDrawTime = 0;
         drawStatusBar();
     }
 
@@ -1075,15 +1482,52 @@ static void startRecording()
     pCmdChar->notify();
     delay(REC_HEADER_DELAY_MS);
 
+    recFailed = false;
     isRecording5Sec = true;
     recordStartTime = millis();
+    bufferIndex = 0;
     tftSleep();
 }
 
 static void stopRecording()
 {
     isRecording5Sec = false;
+
+    // 웹 브릿지에 녹음 완료 알림
+    if (deviceConnected && pCmdChar != nullptr) {
+        pCmdChar->setValue("REC_DONE");
+        pCmdChar->notify();
+    }
+
     tftWake();
+    uiNeedsUpdate = true;
+    btnL.reset();
+    btnR.reset();
+}
+
+static void stopRecordingWithFail()
+{
+    isRecording5Sec = false;
+    recFailed = true;
+    recFailDisplayTime = millis();
+    bufferIndex = 0;
+
+    // 웹 브릿지에 녹음 실패 알림 전송
+    if (deviceConnected && pCmdChar != nullptr) {
+        pCmdChar->setValue("REC_FAIL:DISCONNECTED");
+        pCmdChar->notify();
+    }
+
+    tftWake();
+
+    // 화면에 실패 표시
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.drawString("REC FAILED", tft.width() / 2, tft.height() / 2 - 10, 4);
+    tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+    tft.drawString("BLE Disconnected", tft.width() / 2, tft.height() / 2 + 20, 2);
+
     uiNeedsUpdate = true;
     btnL.reset();
     btnR.reset();
@@ -1094,22 +1538,33 @@ static void stopRecording()
 // ══════════════════════════════════════════════════════════
 void loop()
 {
+    esp_task_wdt_reset();  // Feed watchdog
+
     // Connection state change detection
     static bool lastConnState = false;
     if (deviceConnected != lastConnState) {
         if (deviceConnected) {
             dsp_reset();
+            rr_reset();
             changeState(ACTIVE);
         } else {
             if (isRecording5Sec) {
-                stopRecording();
+                stopRecordingWithFail();
             }
             isBleOn = false;
+            nvsSaveBle();
             uiNeedsUpdate = true;
             btnL.reset();
             btnR.reset();
         }
         lastConnState = deviceConnected;
+    }
+
+    // REC FAIL 표시 timeout → 일정 시간 후 정상 UI 복귀
+    if (recFailed && (millis() - recFailDisplayTime) >= REC_FAIL_DISPLAY_MS) {
+        recFailed = false;
+        uiNeedsUpdate = true;
+        drawUI();
     }
 
     // During recording: only check timeout
@@ -1129,6 +1584,7 @@ void loop()
             changeState(ACTIVE);
         } else if (eventR == BTN_SHORT) {
             isBleOn = true;
+            nvsSaveBle();
             BLEDevice::startAdvertising();
             changeState(PAIRING);
         }
@@ -1136,6 +1592,7 @@ void loop()
     else if (currentState == PAIRING) {
         if (eventR == BTN_SHORT) {
             isBleOn = false;
+            nvsSaveBle();
             BLEDevice::stopAdvertising();
             changeState(ACTIVE);
         }
@@ -1149,6 +1606,7 @@ void loop()
             if (currentMode > MODE_COUNT) {
                 currentMode = MODE_HEART;
             }
+            nvsSaveMode();
             uiNeedsUpdate = true;
             drawUI();
         }
@@ -1164,7 +1622,9 @@ void loop()
             } else if (eventR == BTN_LONG) {
                 if (patientCount > 0) {
                     selectedPatient = patientList[currentPatIdx].id;
+                    nvsSavePatient();
                     currentMode = MODE_HEART;
+                    nvsSaveMode();
                     uiNeedsUpdate = true;
 
                     // Show selection confirmation
@@ -1200,9 +1660,13 @@ void loop()
         && !isRecording5Sec) {
 
         drawWaveform(sharedAveragedSample);
+        drawSignalQuality();
         if (currentMode == MODE_HEART) {
             drawBPM();
             drawBeatIndicator();
+        } else if (currentMode == MODE_LUNG) {
+            drawRR();
+            drawBreathIndicator();
         }
     }
 }
