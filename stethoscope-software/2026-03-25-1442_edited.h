@@ -205,6 +205,9 @@ static constexpr int RR_UNIT_OFFSET_X      = 22;
 
 static constexpr uint16_t COLOR_HIGHLIGHT_BG = 0x03E0;
 
+// AI Result Display
+static constexpr unsigned long AI_RESULT_DISPLAY_MS = 5000UL;  // 결과 표시 5초
+
 // TFT sleep/wake commands
 static constexpr uint8_t TFT_CMD_SLEEP_IN  = 0x10;
 static constexpr uint8_t TFT_CMD_SLEEP_OUT = 0x11;
@@ -291,6 +294,13 @@ static volatile int16_t  sharedAveragedSample = 0;
 
 static unsigned long recordStartTime = 0;
 static unsigned long recFailDisplayTime = 0;
+
+// AI 결과 표시 상태
+static volatile bool  aiResultPending    = false;
+static unsigned long  aiResultDisplayTime = 0;
+static String         aiResultType       = "";     // "HEART" or "LUNG"
+static String         aiResultLabel      = "";     // "Normal", "Abnormal", etc.
+static int            aiResultConfidence = 0;
 
 static PatientInfo patientList[MAX_PATIENTS];
 static int  patientCount    = 0;
@@ -742,6 +752,24 @@ class MyCmdCallbacks : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic* pCharacteristic) override
     {
         const String rxValue = pCharacteristic->getValue().c_str();
+
+        // Parse AI result: "AI:HEART:Normal:95" or "AI:LUNG:Wheeze:72"
+        if (rxValue.startsWith("AI:")) {
+            const String aiData = rxValue.substring(3);
+            const int c1 = aiData.indexOf(':');
+            const int c2 = aiData.indexOf(':', c1 + 1);
+            if (c1 != -1 && c2 != -1) {
+                aiResultType       = aiData.substring(0, c1);
+                aiResultLabel      = aiData.substring(c1 + 1, c2);
+                aiResultConfidence = aiData.substring(c2 + 1).toInt();
+                aiResultPending    = true;
+                aiResultDisplayTime = millis();
+                uiNeedsUpdate      = true;
+                Serial.printf("[AI] Result: %s %s %d%%\n",
+                    aiResultType.c_str(), aiResultLabel.c_str(), aiResultConfidence);
+            }
+            return;
+        }
 
         // Parse patient list: "PAT:P001|Kim|301,P002|Lee|302"
         if (!rxValue.startsWith("PAT:")) {
@@ -1245,6 +1273,59 @@ static void drawBreathIndicator()
     }
 }
 
+// ── AI Result Overlay ──
+// 녹음 완료 후 서버에서 받은 AI 분류 결과를 화면에 표시
+static void drawAiResult()
+{
+    if (!aiResultPending) {
+        return;
+    }
+
+    // 표시 시간 초과 → 복귀
+    if ((millis() - aiResultDisplayTime) >= AI_RESULT_DISPLAY_MS) {
+        aiResultPending = false;
+        uiNeedsUpdate   = true;
+        return;
+    }
+
+    const int cx = tft.width() / 2;
+
+    // 배경
+    tft.fillRect(0, WAVE_Y_TOP - 5, tft.width(), WAVE_HEIGHT + BPM_H + 15, TFT_BLACK);
+
+    // 아이콘 + 타입
+    const bool isHeart = (aiResultType == "HEART");
+    const uint16_t accentColor = isHeart ? TFT_RED : TFT_CYAN;
+
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextColor(accentColor, TFT_BLACK);
+    tft.drawString(isHeart ? "HEART" : "LUNG", cx, WAVE_Y_TOP + 5, 2);
+
+    // 판정 결과
+    const bool isNormal = (aiResultLabel == "Normal");
+    const uint16_t resultColor = isNormal ? TFT_GREEN : TFT_RED;
+
+    tft.setTextColor(resultColor, TFT_BLACK);
+    tft.setTextPadding(tft.width());
+
+    // 라벨이 길면 폰트 2, 짧으면 폰트 4
+    if (aiResultLabel.length() > 8) {
+        tft.drawString(aiResultLabel, cx, WAVE_Y_TOP + 35, 2);
+    } else {
+        tft.drawString(aiResultLabel, cx, WAVE_Y_TOP + 35, 4);
+    }
+
+    // 신뢰도
+    char confBuf[8];
+    snprintf(confBuf, sizeof(confBuf), "%d%%", aiResultConfidence);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString(confBuf, cx, WAVE_Y_TOP + 65, 4);
+
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.setTextPadding(0);
+    tft.drawString("confidence", cx, WAVE_Y_TOP + 85, 1);
+}
+
 // ── Signal Quality Indicator ──
 // 3단 바 표시: ■□□ = No Signal, ■■□ = Weak, ■■■ = Good
 static SignalLevel lastSigLevel = SIG_NONE;
@@ -1653,6 +1734,12 @@ void loop()
     }
 
     drawUI();
+
+    // AI 결과 표시 (녹음 완료 후 서버 응답)
+    if (aiResultPending) {
+        drawAiResult();
+        return;  // AI 결과 표시 중에는 파형/BPM 그리지 않음
+    }
 
     // Real-time waveform and BPM display
     if (currentState == ACTIVE

@@ -266,7 +266,80 @@
         </div>
     </div>
 
-    <!-- ③ 업로드 기록 + 청진기 기기 -->
+    <!-- ③ AI 분석 결과 + 디노이즈 오디오 -->
+    <div class="row r2">
+
+        <!-- AI 분석 결과 -->
+        <div class="card">
+            <div class="ch">
+                <span class="ct">🧠 AI 분석 결과</span>
+                <span class="badge warn" id="aiBadge">대기</span>
+            </div>
+            <div class="cb" id="aiResultBody">
+                <div style="text-align:center;color:var(--txt2);font-size:13px;padding:20px;" id="aiEmpty">
+                    녹음 후 AI 분석 결과가 여기에 표시됩니다
+                </div>
+                <div id="aiResultContent" style="display:none;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                        <div id="aiIcon" style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(248,81,73,.1);">❤️</div>
+                        <div>
+                            <div style="font-size:11px;color:var(--txt2);" id="aiPatInfo">P001 · 김철수</div>
+                            <div style="font-size:22px;font-weight:800;" id="aiLabel">Normal</div>
+                        </div>
+                        <div style="margin-left:auto;text-align:right;">
+                            <div style="font-size:28px;font-weight:800;" id="aiConfidence">95%</div>
+                            <div style="font-size:11px;color:var(--txt2);">신뢰도</div>
+                        </div>
+                    </div>
+                    <!-- 확률 바 -->
+                    <div id="aiProbBars" style="display:flex;flex-direction:column;gap:6px;"></div>
+                    <!-- 분석 히스토리 -->
+                    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+                        <div style="font-size:11px;color:var(--txt2);margin-bottom:6px;">최근 분석</div>
+                        <div id="aiHistory" style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 디노이즈 오디오 -->
+        <div class="card">
+            <div class="ch">
+                <span class="ct">🔊 디노이즈 오디오</span>
+                <span class="badge warn" id="denoiseBadge">대기</span>
+            </div>
+            <div class="cb">
+                <div style="text-align:center;color:var(--txt2);font-size:13px;padding:20px;" id="denoiseEmpty">
+                    심음 녹음 시 노이즈가 제거된 오디오가 표시됩니다
+                </div>
+                <div id="denoiseContent" style="display:none;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                        <button class="btn btn-green" id="denoisePlayBtn" onclick="toggleDenoisePlay()">▶ 재생</button>
+                        <span style="font-size:12px;color:var(--txt2);" id="denoiseInfo">—</span>
+                    </div>
+                    <!-- 디노이즈 파형 캔버스 -->
+                    <div style="background:#070c10;border-radius:8px;overflow:hidden;border:1px solid #1c2a1c;position:relative;">
+                        <canvas id="denoiseCanvas" style="display:block;width:100%;height:120px;"></canvas>
+                        <div style="position:absolute;top:6px;left:10px;font-size:10px;font-weight:700;color:#3fb950;letter-spacing:.5px;">DENOISED</div>
+                    </div>
+                    <!-- 원본 vs 디노이즈 비교 -->
+                    <div style="margin-top:10px;display:flex;gap:8px;">
+                        <div style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;">
+                            <div style="font-size:10px;color:var(--txt2);">원본</div>
+                            <canvas id="origMiniCanvas" style="width:100%;height:40px;display:block;"></canvas>
+                        </div>
+                        <div style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;">
+                            <div style="font-size:10px;color:var(--txt2);">디노이즈</div>
+                            <canvas id="denoiseMiniCanvas" style="width:100%;height:40px;display:block;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ④ 업로드 기록 + 청진기 기기 -->
     <div class="row r2">
 
         <!-- 업로드 기록 -->
@@ -694,8 +767,12 @@ function connectMQTT(){
         mqttClient.subscribe('stethoscope/res_patients');
         mqttClient.publish('stethoscope/req_patients','give_me_list');
     });
+    mqttClient.subscribe('stethoscope/result');
+    mqttClient.subscribe('stethoscope/denoised/#');
     mqttClient.on('message',(topic,msg)=>{
         if(topic==='stethoscope/res_patients') handlePatList(msg.toString());
+        else if(topic==='stethoscope/result') handleAiResult(msg.toString());
+        else if(topic.startsWith('stethoscope/denoised/')) handleDenoised(topic,msg);
     });
     mqttClient.on('error',e=>{
         log('MQTT 오류: '+e.message,'err');
@@ -875,7 +952,219 @@ function sendWav(){
 
     // Always store for possible reassignment
     addHistory(curRecPat, curRecType, wavBuf, sizeKb);
+    // 원본 WAV 파형도 미니 캔버스에 그리기
+    drawMiniWaveform('origMiniCanvas', wavBuf);
     webAudioChunks=[];
+}
+
+// ────────────────────────────────────────────────────────
+//  AI 결과 수신 & 표시
+// ────────────────────────────────────────────────────────
+function handleAiResult(raw){
+    try{
+        const r=JSON.parse(raw);
+        log(`AI 결과 수신: ${r.patient_name} ${r.scan_type} → ${r.label}`,'ok');
+
+        document.getElementById('aiEmpty').style.display='none';
+        document.getElementById('aiResultContent').style.display='block';
+
+        const isHeart=r.scan_type==='HEART';
+        document.getElementById('aiIcon').innerHTML=isHeart?'❤️':'🫁';
+        document.getElementById('aiIcon').style.background=isHeart?'rgba(248,81,73,.1)':'rgba(88,166,255,.1)';
+        document.getElementById('aiPatInfo').textContent=`${r.patient_id} · ${r.patient_name} · ${isHeart?'심음':'호흡음'}`;
+
+        const labelEl=document.getElementById('aiLabel');
+        labelEl.textContent=r.label;
+        labelEl.style.color=r.label==='Normal'?'var(--green)':'var(--red)';
+
+        // 확률 바
+        const bars=document.getElementById('aiProbBars');
+        bars.innerHTML='';
+        if(isHeart){
+            const conf=Math.max(r.prob_normal||0,r.prob_abnormal||0);
+            document.getElementById('aiConfidence').textContent=conf.toFixed(1)+'%';
+            addProbBar(bars,'Normal',r.prob_normal||0,'var(--green)');
+            addProbBar(bars,'Abnormal',r.prob_abnormal||0,'var(--red)');
+        } else {
+            const probs=r.probs||{};
+            const sorted=Object.entries(probs).sort((a,b)=>b[1]-a[1]);
+            const topProb=sorted.length?sorted[0][1]:0;
+            document.getElementById('aiConfidence').textContent=topProb.toFixed(1)+'%';
+            const colors={'Normal':'var(--green)','Wheeze':'var(--yellow)','Crackle':'var(--red)',
+                          'Complex':'var(--purple)','Stridor':'var(--blue)'};
+            sorted.forEach(([cls,prob])=>addProbBar(bars,cls,prob,colors[cls]||'var(--txt2)'));
+        }
+
+        setBadge('aiBadge','ok',r.label);
+
+        // 히스토리 추가
+        const hist=document.getElementById('aiHistory');
+        const item=document.createElement('div');
+        item.style.cssText='display:flex;justify-content:space-between;font-size:12px;padding:3px 0;';
+        item.innerHTML=`<span style="color:var(--txt2);">${nowStr()} ${r.patient_id}</span>
+            <span style="color:${r.label==='Normal'?'var(--green)':'var(--red)'};">${r.scan_type} → ${r.label}</span>`;
+        hist.insertBefore(item,hist.firstChild);
+
+        // ESP32로 결과 전달 (BLE command)
+        sendResultToDevice(r);
+
+    }catch(e){log('AI 결과 파싱 실패: '+e.message,'err');}
+}
+
+function addProbBar(container,label,prob,color){
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;';
+    row.innerHTML=`
+        <span style="font-size:11px;color:var(--txt2);min-width:60px;">${label}</span>
+        <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+            <div style="width:${prob}%;height:100%;background:${color};border-radius:3px;transition:width .5s;"></div>
+        </div>
+        <span style="font-size:11px;font-weight:700;min-width:45px;text-align:right;color:${color};">${prob.toFixed(1)}%</span>`;
+    container.appendChild(row);
+}
+
+// ESP32에 BLE로 AI 결과 전송
+function sendResultToDevice(r){
+    if(!cmdChar) return;
+    try{
+        let msg;
+        if(r.scan_type==='HEART'){
+            msg=`AI:HEART:${r.label}:${Math.round(Math.max(r.prob_normal||0,r.prob_abnormal||0))}`;
+        } else {
+            const probs=r.probs||{};
+            const topProb=Math.round(Math.max(...Object.values(probs),0));
+            msg=`AI:LUNG:${r.label}:${topProb}`;
+        }
+        cmdChar.writeValue(new TextEncoder().encode(msg));
+        log(`ESP32 결과 전송: ${msg}`,'info');
+    }catch(e){log('ESP32 결과 전송 실패: '+e.message,'warn');}
+}
+
+// ────────────────────────────────────────────────────────
+//  디노이즈 오디오 수신 & 재생
+// ────────────────────────────────────────────────────────
+let denoiseAudioUrl=null;
+let denoiseAudioEl=null;
+let denoiseIsPlaying=false;
+
+function handleDenoised(topic,msg){
+    const parts=topic.split('/');
+    const pat=parts[2], type=parts[3];
+    const wavBytes=new Uint8Array(msg);
+    const sizeKb=wavBytes.length/1024;
+
+    log(`디노이즈 WAV 수신: ${pat}/${type} (${sizeKb.toFixed(1)} KB)`,'ok');
+    setBadge('denoiseBadge','ok','수신됨');
+
+    document.getElementById('denoiseEmpty').style.display='none';
+    document.getElementById('denoiseContent').style.display='block';
+    document.getElementById('denoiseInfo').textContent=`${pat} · ${type} · ${sizeKb.toFixed(1)} KB`;
+
+    // Audio Blob 생성
+    if(denoiseAudioUrl) URL.revokeObjectURL(denoiseAudioUrl);
+    const blob=new Blob([wavBytes],{type:'audio/wav'});
+    denoiseAudioUrl=URL.createObjectURL(blob);
+    denoiseAudioEl=new Audio(denoiseAudioUrl);
+    denoiseAudioEl.onended=()=>{
+        denoiseIsPlaying=false;
+        document.getElementById('denoisePlayBtn').textContent='▶ 재생';
+    };
+    document.getElementById('denoisePlayBtn').textContent='▶ 재생';
+    denoiseIsPlaying=false;
+
+    // 파형 그리기
+    drawDenoiseWaveform(wavBytes);
+    drawMiniWaveform('denoiseMiniCanvas',wavBytes.buffer);
+}
+
+function toggleDenoisePlay(){
+    if(!denoiseAudioEl) return;
+    if(denoiseIsPlaying){
+        denoiseAudioEl.pause();
+        denoiseAudioEl.currentTime=0;
+        denoiseIsPlaying=false;
+        document.getElementById('denoisePlayBtn').textContent='▶ 재생';
+    } else {
+        denoiseAudioEl.play();
+        denoiseIsPlaying=true;
+        document.getElementById('denoisePlayBtn').textContent='⏹ 정지';
+    }
+}
+
+// 디노이즈 WAV → 캔버스 파형
+function drawDenoiseWaveform(wavBytes){
+    const canvas=document.getElementById('denoiseCanvas');
+    const rect=canvas.getBoundingClientRect();
+    const dpr=devicePixelRatio;
+    canvas.width=rect.width*dpr; canvas.height=rect.height*dpr;
+    const ctx=canvas.getContext('2d');
+    ctx.scale(dpr,dpr);
+    const W=rect.width, H=rect.height;
+
+    // WAV 파싱 (헤더 44바이트 이후가 PCM 데이터)
+    const dv=new DataView(wavBytes.buffer||wavBytes);
+    const samples=[];
+    for(let i=44;i+1<wavBytes.length;i+=2){
+        const s=dv.getInt16(i,true);
+        samples.push(s/32768);
+    }
+
+    // 배경
+    ctx.fillStyle='#070c10'; ctx.fillRect(0,0,W,H);
+
+    // 그리드
+    ctx.strokeStyle='#0d1a0d'; ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+
+    // 파형
+    if(!samples.length) return;
+    const step=Math.max(1,Math.floor(samples.length/W));
+    ctx.strokeStyle='#3fb950'; ctx.lineWidth=1.5;
+    ctx.shadowColor='#3fb950'; ctx.shadowBlur=6;
+    ctx.beginPath();
+    for(let x=0;x<W;x++){
+        const idx=Math.floor(x*samples.length/W);
+        const amp=Math.max(-1,Math.min(1,samples[idx]||0));
+        const y=H/2-amp*H*0.42;
+        x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur=0;
+}
+
+// 미니 파형 (원본/디노이즈 비교용)
+function drawMiniWaveform(canvasId,arrayBuffer){
+    const canvas=document.getElementById(canvasId);
+    if(!canvas) return;
+    const rect=canvas.getBoundingClientRect();
+    const dpr=devicePixelRatio;
+    canvas.width=rect.width*dpr; canvas.height=rect.height*dpr;
+    const ctx=canvas.getContext('2d');
+    ctx.scale(dpr,dpr);
+    const W=rect.width, H=rect.height;
+
+    const dv=new DataView(arrayBuffer);
+    const samples=[];
+    for(let i=44;i+1<dv.byteLength;i+=2){
+        const s=dv.getInt16(i,true);
+        samples.push(s/32768);
+    }
+
+    ctx.fillStyle='#070c10'; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='#30363d'; ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+
+    if(!samples.length) return;
+    const color=canvasId.includes('orig')?'#8b949e':'#3fb950';
+    ctx.strokeStyle=color; ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let x=0;x<W;x++){
+        const idx=Math.floor(x*samples.length/W);
+        const amp=Math.max(-1,Math.min(1,samples[idx]||0));
+        const y=H/2-amp*H*0.4;
+        x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
 }
 </script>
 </body>
