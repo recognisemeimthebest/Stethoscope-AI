@@ -82,9 +82,9 @@ static constexpr int WDT_LOOP_TIMEOUT_SEC  = 30;    // loop() 30초 내 feed 없
 //  Audio / DSP Constants
 // ══════════════════════════════════════════════════════════
 static constexpr int SAMPLE_RATE     = 16000;
-static constexpr int TARGET_RATE     = 2000;
+static constexpr int TARGET_RATE     = 8000;
 static constexpr int DECIMATION      = SAMPLE_RATE / TARGET_RATE;
-static constexpr int BLE_BUFFER_SIZE = 50;
+static constexpr int BLE_BUFFER_SIZE = 80;
 
 static constexpr float HEART_LPF_COEFF   = 0.24f;
 static constexpr float HEART_LPF_DECAY   = 0.76f;
@@ -104,9 +104,9 @@ static constexpr int HEART_SMOOTH_DENOM  = 6;
 // ══════════════════════════════════════════════════════════
 static constexpr float DSP_NOISE_FLOOR     = 0.0005f;
 static constexpr float DSP_THRESHOLD_RATIO = 0.35f;
-static constexpr int   DSP_PEAK_REFRACTORY = 600;
-static constexpr int   DSP_ENV_WINDOW      = 20;
-static constexpr int   DSP_VAR_WINDOW      = 100;
+static constexpr int   DSP_PEAK_REFRACTORY = 2400;
+static constexpr int   DSP_ENV_WINDOW      = 80;
+static constexpr int   DSP_VAR_WINDOW      = 400;
 static constexpr float DSP_SIGNAL_VAR_MIN  = 0.00001f;
 static constexpr unsigned long DSP_BPM_TIMEOUT_MS = 4000UL;
 
@@ -143,7 +143,7 @@ static constexpr int   RR_RMS_WINDOW       = 400;    // RMS 윈도우 200ms (2kH
 static constexpr int   RR_SMOOTH_WINDOW    = 1000;   // 이동평균 500ms (2kHz * 0.5)
 static constexpr float RR_NOISE_FLOOR      = 0.002f; // 최소 에너지 (무음 판별)
 static constexpr float RR_THRESHOLD_RATIO  = 0.30f;  // running_max 대비 threshold 비율
-static constexpr int   RR_REFRACTORY       = 3000;   // 최소 1.5초 간격 (2kHz * 1.5) → ~40회/min 상한
+static constexpr int   RR_REFRACTORY       = 12000;  // 최소 1.5초 간격 (8kHz * 1.5) → ~40회/min 상한
 static constexpr float RR_RUNNING_MAX_DECAY = 0.9997f;
 static constexpr float RR_TIMEOUT_DECAY    = 0.5f;
 static constexpr unsigned long RR_TIMEOUT_MS = 10000UL; // 10초 무호흡 시 reset
@@ -833,7 +833,7 @@ static void audioTask(void* pvParameters)
 
     for (;;) {
         esp_task_wdt_reset();  // Feed watchdog every iteration
-        // Decimate from 16kHz to 2kHz
+        // Decimate from 16kHz to 8kHz
         int32_t sum = 0;
         for (int i = 0; i < DECIMATION; i++) {
             int32_t sample  = 0;

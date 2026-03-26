@@ -260,7 +260,7 @@
                 <div class="wave-wrap">
                     <canvas id="waveCanvas"></canvas>
                     <div class="wave-mode-lbl" id="waveModeLbl" style="color:#2a3d2a;">IDLE</div>
-                    <div class="wave-meta-lbl">16kHz → 2kHz</div>
+                    <div class="wave-meta-lbl">16kHz → 8kHz</div>
                 </div>
             </div>
         </div>
@@ -839,8 +839,8 @@ function buildWav(chunks){
     ws(v,0,'RIFF');v.setUint32(4,36+dataSize*2,true);
     ws(v,8,'WAVE');ws(v,12,'fmt ');
     v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,2,true);
-    // 펌웨어 TARGET_RATE=2000 (16kHz÷8 decimation)
-    v.setUint32(24,2000,true);v.setUint32(28,2000*2*2,true);
+    // 펌웨어 TARGET_RATE=8000 (16kHz÷2 decimation)
+    v.setUint32(24,8000,true);v.setUint32(28,8000*2*2,true);
     v.setUint16(32,4,true);v.setUint16(34,16,true);
     ws(v,36,'data');v.setUint32(40,dataSize*2,true);
     const arr=new Uint8Array(dataSize);
