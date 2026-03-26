@@ -963,7 +963,8 @@ function sendWav(){
 function handleAiResult(raw){
     try{
         const r=JSON.parse(raw);
-        log(`AI 결과 수신: ${r.patient_name} ${r.scan_type} → ${r.label}`,'ok');
+        const isUnknown=r.label==='Unknown'||r.action==='RE_AUSCULTATE';
+        log(`AI 결과 수신: ${r.patient_name} ${r.scan_type} → ${r.label}${isUnknown?' ⚠️ 다시 청진 필요':''}`,'ok');
 
         document.getElementById('aiEmpty').style.display='none';
         document.getElementById('aiResultContent').style.display='block';
@@ -974,35 +975,59 @@ function handleAiResult(raw){
         document.getElementById('aiPatInfo').textContent=`${r.patient_id} · ${r.patient_name} · ${isHeart?'심음':'호흡음'}`;
 
         const labelEl=document.getElementById('aiLabel');
-        labelEl.textContent=r.label;
-        labelEl.style.color=r.label==='Normal'?'var(--green)':'var(--red)';
+        if(isUnknown){
+            labelEl.textContent='⚠️ 다시 청진 필요';
+            labelEl.style.color='var(--yellow)';
+        } else {
+            labelEl.textContent=r.label;
+            labelEl.style.color=r.label==='Normal'?'var(--green)':'var(--red)';
+        }
+
+        // Unknown 경고 배너
+        let warnBanner=document.getElementById('aiUnknownWarn');
+        if(!warnBanner){
+            warnBanner=document.createElement('div');
+            warnBanner.id='aiUnknownWarn';
+            warnBanner.style.cssText=`margin-top:10px;padding:10px 14px;border-radius:8px;
+                background:rgba(210,153,34,.12);border:1px solid rgba(210,153,34,.4);
+                color:var(--yellow);font-size:13px;font-weight:600;display:none;`;
+            document.getElementById('aiResultContent').appendChild(warnBanner);
+        }
+        if(isUnknown){
+            warnBanner.textContent=r.message||'유효한 청진음이 감지되지 않았습니다. 청진기를 다시 밀착하고 재시도해주세요.';
+            warnBanner.style.display='block';
+        } else {
+            warnBanner.style.display='none';
+        }
 
         // 확률 바
         const bars=document.getElementById('aiProbBars');
         bars.innerHTML='';
         if(isHeart){
-            const conf=Math.max(r.prob_normal||0,r.prob_abnormal||0);
+            const conf=isUnknown?(r.prob_unknown||0):Math.max(r.prob_normal||0,r.prob_abnormal||0);
             document.getElementById('aiConfidence').textContent=conf.toFixed(1)+'%';
-            addProbBar(bars,'Normal',r.prob_normal||0,'var(--green)');
+            addProbBar(bars,'Normal',  r.prob_normal||0,  'var(--green)');
             addProbBar(bars,'Abnormal',r.prob_abnormal||0,'var(--red)');
+            addProbBar(bars,'Unknown', r.prob_unknown||0, 'var(--yellow)');
         } else {
             const probs=r.probs||{};
             const sorted=Object.entries(probs).sort((a,b)=>b[1]-a[1]);
             const topProb=sorted.length?sorted[0][1]:0;
             document.getElementById('aiConfidence').textContent=topProb.toFixed(1)+'%';
             const colors={'Normal':'var(--green)','Wheeze':'var(--yellow)','Crackle':'var(--red)',
-                          'Complex':'var(--purple)','Stridor':'var(--blue)'};
+                          'Complex':'var(--purple)','Stridor':'var(--blue)','Unknown':'var(--yellow)'};
             sorted.forEach(([cls,prob])=>addProbBar(bars,cls,prob,colors[cls]||'var(--txt2)'));
         }
 
-        setBadge('aiBadge','ok',r.label);
+        setBadge('aiBadge',isUnknown?'warn':'ok',r.label);
 
         // 히스토리 추가
         const hist=document.getElementById('aiHistory');
         const item=document.createElement('div');
         item.style.cssText='display:flex;justify-content:space-between;font-size:12px;padding:3px 0;';
+        const labelColor=isUnknown?'var(--yellow)':(r.label==='Normal'?'var(--green)':'var(--red)');
         item.innerHTML=`<span style="color:var(--txt2);">${nowStr()} ${r.patient_id}</span>
-            <span style="color:${r.label==='Normal'?'var(--green)':'var(--red)'};">${r.scan_type} → ${r.label}</span>`;
+            <span style="color:${labelColor};">${r.scan_type} → ${isUnknown?'재청진필요':r.label}</span>`;
         hist.insertBefore(item,hist.firstChild);
 
         // ESP32로 결과 전달 (BLE command)
@@ -1028,7 +1053,9 @@ function sendResultToDevice(r){
     if(!cmdChar) return;
     try{
         let msg;
-        if(r.scan_type==='HEART'){
+        if(r.action==='RE_AUSCULTATE'||r.label==='Unknown'){
+            msg=`AI:${r.scan_type}:RECHECK:0`;
+        } else if(r.scan_type==='HEART'){
             msg=`AI:HEART:${r.label}:${Math.round(Math.max(r.prob_normal||0,r.prob_abnormal||0))}`;
         } else {
             const probs=r.probs||{};
@@ -1045,7 +1072,9 @@ function sendResultToDevice(r){
 // ────────────────────────────────────────────────────────
 let denoiseAudioUrl=null;
 let denoiseAudioEl=null;
+let denoiseAudioBuffer=null;   // Web Audio API 디코딩 버퍼
 let denoiseIsPlaying=false;
+let denoiseSourceNode=null;
 
 function handleDenoised(topic,msg){
     const parts=topic.split('/');
@@ -1060,14 +1089,28 @@ function handleDenoised(topic,msg){
     document.getElementById('denoiseContent').style.display='block';
     document.getElementById('denoiseInfo').textContent=`${pat} · ${type} · ${sizeKb.toFixed(1)} KB`;
 
-    // Audio Blob 생성
+    // Audio Blob 생성 (4000Hz WAV → Web Audio API로 리샘플링 재생)
     if(denoiseAudioUrl) URL.revokeObjectURL(denoiseAudioUrl);
+
+    // Web Audio API로 디코딩 후 재생 (4kHz 저샘플레이트 호환)
+    const audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    audioCtx.decodeAudioData(wavBytes.buffer.slice(0)).then(audioBuffer=>{
+        denoiseAudioBuffer=audioBuffer;
+        log(`디노이즈 오디오 디코딩 완료: ${audioBuffer.duration.toFixed(2)}초, ${audioBuffer.sampleRate}Hz`,'ok');
+    }).catch(e=>{
+        log('디노이즈 오디오 디코딩 실패: '+e.message,'err');
+    });
+
+    // 폴백: 일반 Audio 엘리먼트로도 시도
     const blob=new Blob([wavBytes],{type:'audio/wav'});
     denoiseAudioUrl=URL.createObjectURL(blob);
     denoiseAudioEl=new Audio(denoiseAudioUrl);
     denoiseAudioEl.onended=()=>{
         denoiseIsPlaying=false;
         document.getElementById('denoisePlayBtn').textContent='▶ 재생';
+    };
+    denoiseAudioEl.onerror=(e)=>{
+        log('Audio 엘리먼트 재생 오류: '+denoiseAudioEl.error?.message,'err');
     };
     document.getElementById('denoisePlayBtn').textContent='▶ 재생';
     denoiseIsPlaying=false;
@@ -1078,16 +1121,38 @@ function handleDenoised(topic,msg){
 }
 
 function toggleDenoisePlay(){
-    if(!denoiseAudioEl) return;
     if(denoiseIsPlaying){
-        denoiseAudioEl.pause();
-        denoiseAudioEl.currentTime=0;
+        // 정지
+        if(denoiseSourceNode){try{denoiseSourceNode.stop();}catch(e){}}
+        if(denoiseAudioEl){denoiseAudioEl.pause();denoiseAudioEl.currentTime=0;}
         denoiseIsPlaying=false;
         document.getElementById('denoisePlayBtn').textContent='▶ 재생';
-    } else {
-        denoiseAudioEl.play();
+        return;
+    }
+
+    // Web Audio API 우선 시도 (4kHz 호환)
+    if(denoiseAudioBuffer){
+        const ctx=new (window.AudioContext||window.webkitAudioContext)();
+        denoiseSourceNode=ctx.createBufferSource();
+        denoiseSourceNode.buffer=denoiseAudioBuffer;
+        denoiseSourceNode.connect(ctx.destination);
+        denoiseSourceNode.onended=()=>{
+            denoiseIsPlaying=false;
+            document.getElementById('denoisePlayBtn').textContent='▶ 재생';
+        };
+        denoiseSourceNode.start();
         denoiseIsPlaying=true;
         document.getElementById('denoisePlayBtn').textContent='⏹ 정지';
+        log('Web Audio API로 재생 중','info');
+        return;
+    }
+
+    // 폴백: Audio 엘리먼트
+    if(denoiseAudioEl){
+        denoiseAudioEl.play().then(()=>{
+            denoiseIsPlaying=true;
+            document.getElementById('denoisePlayBtn').textContent='⏹ 정지';
+        }).catch(e=>log('재생 실패: '+e.message,'err'));
     }
 }
 
