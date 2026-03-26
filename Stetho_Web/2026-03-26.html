@@ -209,6 +209,7 @@
                 <div style="display:flex;gap:8px;align-items:center;">
                     <span class="badge warn" id="patBadge">0명</span>
                     <button class="btn btn-blue" id="btnMqtt" onclick="connectMQTT()">🌐 EMR 서버 연결</button>
+                    <button class="btn" id="btnRefreshPat" onclick="refreshPatients()" style="background:var(--card2);color:var(--txt1);" title="환자 목록 재요청">🔄</button>
                     <button class="btn btn-green" id="btnBle" onclick="connectBLE()">📡 BLE 연결</button>
                 </div>
             </div>
@@ -764,11 +765,14 @@ function connectMQTT(){
         log('EMR 서버 연결 성공 — 환자 목록 요청 중','ok');
         setMqttBadge(true,'연결됨');
         btn.textContent='✅ EMR 연결됨';
-        mqttClient.subscribe('stethoscope/res_patients');
-        mqttClient.publish('stethoscope/req_patients','give_me_list');
+        // 모든 구독을 on('connect') 내부에서 처리 (재연결 시에도 자동 재구독)
+        mqttClient.subscribe('stethoscope/result');
+        mqttClient.subscribe('stethoscope/denoised/#');
+        // res_patients 구독 ACK 확인 후 req 발행 (타이밍 경쟁 방지)
+        mqttClient.subscribe('stethoscope/res_patients', () => {
+            mqttClient.publish('stethoscope/req_patients','give_me_list');
+        });
     });
-    mqttClient.subscribe('stethoscope/result');
-    mqttClient.subscribe('stethoscope/denoised/#');
     mqttClient.on('message',(topic,msg)=>{
         if(topic==='stethoscope/res_patients') handlePatList(msg.toString());
         else if(topic==='stethoscope/result') handleAiResult(msg.toString());
@@ -783,6 +787,14 @@ function connectMQTT(){
         setMqttBadge(false,'연결 끊김');
         btn.disabled=false; btn.textContent='🌐 EMR 서버 연결';
     });
+}
+
+function refreshPatients(){
+    if(!mqttClient||!mqttClient.connected){
+        log('EMR 서버에 먼저 연결하세요','warn'); return;
+    }
+    log('환자 목록 재요청 중...','info');
+    mqttClient.publish('stethoscope/req_patients','give_me_list');
 }
 
 function handlePatList(raw){
@@ -963,6 +975,15 @@ function sendWav(){
 function handleAiResult(raw){
     try{
         const r=JSON.parse(raw);
+
+        // 모델 미로드 / 오류 라벨은 결과로 표시하지 않음
+        const errorLabels=new Set(['MODEL_NOT_LOADED','ERROR','UNKNOWN']);
+        if(errorLabels.has(r.label)){
+            log(`AI 결과: 모델 미로드 또는 오류 (${r.label}) — 서버 환경 확인 필요`,'warn');
+            setBadge('aiBadge','warn','분석중');
+            return;
+        }
+
         const isUnknown=r.label==='Unknown'||r.action==='RE_AUSCULTATE';
         log(`AI 결과 수신: ${r.patient_name} ${r.scan_type} → ${r.label}${isUnknown?' ⚠️ 다시 청진 필요':''}`,'ok');
 
@@ -1021,13 +1042,14 @@ function handleAiResult(raw){
 
         setBadge('aiBadge',isUnknown?'warn':'ok',r.label);
 
-        // 히스토리 추가
+        // 히스토리 추가 (Normal / Abnormal / Unknown만 기록)
+        const displayLabel=isUnknown?'재청진필요':r.label;
+        const labelColor=isUnknown?'var(--yellow)':(r.label==='Normal'?'var(--green)':'var(--red)');
         const hist=document.getElementById('aiHistory');
         const item=document.createElement('div');
         item.style.cssText='display:flex;justify-content:space-between;font-size:12px;padding:3px 0;';
-        const labelColor=isUnknown?'var(--yellow)':(r.label==='Normal'?'var(--green)':'var(--red)');
         item.innerHTML=`<span style="color:var(--txt2);">${nowStr()} ${r.patient_id}</span>
-            <span style="color:${labelColor};">${r.scan_type} → ${isUnknown?'재청진필요':r.label}</span>`;
+            <span style="color:${labelColor};">${r.scan_type} → ${displayLabel}</span>`;
         hist.insertBefore(item,hist.firstChild);
 
         // ESP32로 결과 전달 (BLE command)
