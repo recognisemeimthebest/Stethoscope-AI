@@ -318,20 +318,20 @@
                         <button class="btn btn-green" id="denoisePlayBtn" onclick="toggleDenoisePlay()">▶ 재생</button>
                         <span style="font-size:12px;color:var(--txt2);" id="denoiseInfo">—</span>
                     </div>
-                    <!-- 디노이즈 파형 캔버스 -->
+                    <!-- 큰 파형 캔버스 (선택된 오디오 표시) -->
                     <div style="background:#070c10;border-radius:8px;overflow:hidden;border:1px solid #1c2a1c;position:relative;">
                         <canvas id="denoiseCanvas" style="display:block;width:100%;height:120px;"></canvas>
-                        <div style="position:absolute;top:6px;left:10px;font-size:10px;font-weight:700;color:#3fb950;letter-spacing:.5px;">DENOISED</div>
+                        <div id="audioCanvasLabel" style="position:absolute;top:6px;left:10px;font-size:10px;font-weight:700;color:#3fb950;letter-spacing:.5px;">DENOISED</div>
                     </div>
-                    <!-- 원본 vs 디노이즈 비교 -->
+                    <!-- 원본 / 디노이즈 선택 탭 -->
                     <div style="margin-top:10px;display:flex;gap:8px;">
-                        <div style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;">
-                            <div style="font-size:10px;color:var(--txt2);">원본</div>
-                            <canvas id="origMiniCanvas" style="width:100%;height:40px;display:block;"></canvas>
+                        <div id="tabOrig" onclick="selectAudioTab('orig')" style="flex:1;background:var(--bg);border:2px solid var(--border);border-radius:6px;padding:8px;text-align:center;cursor:pointer;transition:border-color .15s;">
+                            <div style="font-size:10px;color:var(--txt2);margin-bottom:3px;">원본</div>
+                            <canvas id="origMiniCanvas" style="width:100%;height:40px;display:block;pointer-events:none;"></canvas>
                         </div>
-                        <div style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;">
-                            <div style="font-size:10px;color:var(--txt2);">디노이즈</div>
-                            <canvas id="denoiseMiniCanvas" style="width:100%;height:40px;display:block;"></canvas>
+                        <div id="tabDenoise" onclick="selectAudioTab('denoised')" style="flex:1;background:var(--bg);border:2px solid #3fb950;border-radius:6px;padding:8px;text-align:center;cursor:pointer;transition:border-color .15s;">
+                            <div style="font-size:10px;color:var(--txt2);margin-bottom:3px;">디노이즈</div>
+                            <canvas id="denoiseMiniCanvas" style="width:100%;height:40px;display:block;pointer-events:none;"></canvas>
                         </div>
                     </div>
                 </div>
@@ -895,8 +895,6 @@ function onCmd(event){
         stopRec();
         clearTimeout(receiveTimeout); webAudioChunks=[];  // 불완전 오디오 폐기
         log(`녹음 실패 — ${reason} (REC_FAIL)`,'err');
-    } else if(cmd.startsWith('SIG:')){
-        // 펌웨어가 SIG: 를 BLE로 전송하지 않으므로 무시
     }
 }
 
@@ -911,6 +909,8 @@ function onAudio(event){
     }
     clearTimeout(receiveTimeout);
     receiveTimeout=setTimeout(()=>{
+        // 새 녹음이 이미 시작됐으면 이전 타임아웃 무시
+        if(isRecording) return;
         stopRec();
         log('오디오 수신 완료, 서버 전송 중...','info');
         sendWav();
@@ -922,25 +922,20 @@ function onAudio(event){
 // ────────────────────────────────────────────────────────
 function buildWav(chunks){
     const dataSize=chunks.reduce((a,c)=>a+c.length,0);
-    const buf=new ArrayBuffer(44+dataSize*2);
+    const buf=new ArrayBuffer(44+dataSize);
     const v=new DataView(buf);
     const ws=(dv,o,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));};
-    ws(v,0,'RIFF');v.setUint32(4,36+dataSize*2,true);
+    ws(v,0,'RIFF');v.setUint32(4,36+dataSize,true);
     ws(v,8,'WAVE');ws(v,12,'fmt ');
-    v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,2,true);
-    // 펌웨어 TARGET_RATE=8000 (16kHz÷2 decimation)
-    v.setUint32(24,8000,true);v.setUint32(28,8000*2*2,true);
-    v.setUint16(32,4,true);v.setUint16(34,16,true);
-    ws(v,36,'data');v.setUint32(40,dataSize*2,true);
-    const arr=new Uint8Array(dataSize);
+    // 8kHz, 16-bit, mono
+    v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+    v.setUint32(24,8000,true);v.setUint32(28,8000*1*2,true);
+    v.setUint16(32,2,true);v.setUint16(34,16,true);
+    ws(v,36,'data');v.setUint32(40,dataSize,true);
+    // BLE 원시 바이트를 그대로 복사 (이미 int16 LE mono)
+    const dst=new Uint8Array(buf,44);
     let off=0;
-    for(const c of chunks){arr.set(c,off);off+=c.length;}
-    const dv=new DataView(buf,44);
-    let vo=0;
-    for(let i=0;i+1<arr.length;i+=2){
-        const s=(arr[i+1]<<8)|arr[i];
-        dv.setInt16(vo,s,true);dv.setInt16(vo+2,s,true);vo+=4;
-    }
+    for(const c of chunks){dst.set(c,off);off+=c.length;}
     return buf;
 }
 
@@ -964,6 +959,17 @@ function sendWav(){
 
     // Always store for possible reassignment
     addHistory(curRecPat, curRecType, wavBuf, sizeKb);
+
+    // 원본 WAV 저장 (탭 전환 시 재사용)
+    origWavBuf=wavBuf;
+    origIsPlaying=false;
+    if(origAudioUrl){URL.revokeObjectURL(origAudioUrl); origAudioUrl=null;}
+    const origBlob=new Blob([new Uint8Array(wavBuf)],{type:'audio/wav'});
+    origAudioUrl=URL.createObjectURL(origBlob);
+    origAudioEl=new Audio(origAudioUrl);
+    origAudioEl.onended=()=>{origIsPlaying=false; document.getElementById('denoisePlayBtn').textContent='▶ 재생';};
+    getAudioCtx().decodeAudioData(wavBuf.slice(0)).then(buf=>{origAudioBuffer=buf;}).catch(()=>{});
+
     // 원본 WAV 파형도 미니 캔버스에 그리기
     drawMiniWaveform('origMiniCanvas', wavBuf);
     webAudioChunks=[];
@@ -977,7 +983,7 @@ function handleAiResult(raw){
         const r=JSON.parse(raw);
 
         // 모델 미로드 / 오류 라벨은 결과로 표시하지 않음
-        const errorLabels=new Set(['MODEL_NOT_LOADED','ERROR','UNKNOWN']);
+        const errorLabels=new Set(['MODEL_NOT_LOADED','ERROR']);
         if(errorLabels.has(r.label)){
             log(`AI 결과: 모델 미로드 또는 오류 (${r.label}) — 서버 환경 확인 필요`,'warn');
             setBadge('aiBadge','warn','분석중');
@@ -1097,6 +1103,26 @@ let denoiseAudioEl=null;
 let denoiseAudioBuffer=null;   // Web Audio API 디코딩 버퍼
 let denoiseIsPlaying=false;
 let denoiseSourceNode=null;
+let denoiseWavBytes=null;      // 디노이즈 WAV 바이트 (탭 전환용)
+
+let origWavBuf=null;           // 원본 WAV ArrayBuffer (stopRec에서 저장)
+let origAudioBuffer=null;      // Web Audio API 디코딩 버퍼
+let origAudioEl=null;
+let origAudioUrl=null;
+let origSourceNode=null;
+let origIsPlaying=false;
+
+let selectedAudioTab='denoised'; // 'orig' | 'denoised'
+
+// 공유 AudioContext (브라우저 제한 방지 — 6개 초과 시 생성 실패)
+let sharedAudioCtx=null;
+function getAudioCtx(){
+    if(!sharedAudioCtx||sharedAudioCtx.state==='closed'){
+        sharedAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    }
+    if(sharedAudioCtx.state==='suspended') sharedAudioCtx.resume();
+    return sharedAudioCtx;
+}
 
 function handleDenoised(topic,msg){
     const parts=topic.split('/');
@@ -1115,8 +1141,7 @@ function handleDenoised(topic,msg){
     if(denoiseAudioUrl) URL.revokeObjectURL(denoiseAudioUrl);
 
     // Web Audio API로 디코딩 후 재생 (4kHz 저샘플레이트 호환)
-    const audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    audioCtx.decodeAudioData(wavBytes.buffer.slice(0)).then(audioBuffer=>{
+    getAudioCtx().decodeAudioData(wavBytes.buffer.slice(0)).then(audioBuffer=>{
         denoiseAudioBuffer=audioBuffer;
         log(`디노이즈 오디오 디코딩 완료: ${audioBuffer.duration.toFixed(2)}초, ${audioBuffer.sampleRate}Hz`,'ok');
     }).catch(e=>{
@@ -1137,49 +1162,105 @@ function handleDenoised(topic,msg){
     document.getElementById('denoisePlayBtn').textContent='▶ 재생';
     denoiseIsPlaying=false;
 
+    // 디노이즈 WAV 저장 (탭 전환 시 재사용)
+    denoiseWavBytes=wavBytes;
+
+    // 탭 초기화: 디노이즈 탭 선택 상태로
+    selectedAudioTab='denoised';
+    document.getElementById('tabDenoise').style.borderColor='#3fb950';
+    document.getElementById('tabOrig').style.borderColor='var(--border)';
+    document.getElementById('audioCanvasLabel').textContent='DENOISED';
+
     // 파형 그리기
     drawDenoiseWaveform(wavBytes);
     drawMiniWaveform('denoiseMiniCanvas',wavBytes.buffer);
 }
 
 function toggleDenoisePlay(){
-    if(denoiseIsPlaying){
+    const isOrig=(selectedAudioTab==='orig');
+    const isPlaying=isOrig?origIsPlaying:denoiseIsPlaying;
+
+    if(isPlaying){
         // 정지
-        if(denoiseSourceNode){try{denoiseSourceNode.stop();}catch(e){}}
-        if(denoiseAudioEl){denoiseAudioEl.pause();denoiseAudioEl.currentTime=0;}
-        denoiseIsPlaying=false;
+        if(isOrig){
+            if(origSourceNode){try{origSourceNode.stop();}catch(e){}}
+            if(origAudioEl){origAudioEl.pause();origAudioEl.currentTime=0;}
+            origIsPlaying=false;
+        } else {
+            if(denoiseSourceNode){try{denoiseSourceNode.stop();}catch(e){}}
+            if(denoiseAudioEl){denoiseAudioEl.pause();denoiseAudioEl.currentTime=0;}
+            denoiseIsPlaying=false;
+        }
         document.getElementById('denoisePlayBtn').textContent='▶ 재생';
         return;
     }
 
     // Web Audio API 우선 시도 (4kHz 호환)
-    if(denoiseAudioBuffer){
-        const ctx=new (window.AudioContext||window.webkitAudioContext)();
-        denoiseSourceNode=ctx.createBufferSource();
-        denoiseSourceNode.buffer=denoiseAudioBuffer;
-        denoiseSourceNode.connect(ctx.destination);
-        denoiseSourceNode.onended=()=>{
-            denoiseIsPlaying=false;
+    const audioBuf=isOrig?origAudioBuffer:denoiseAudioBuffer;
+    if(audioBuf){
+        const ctx=getAudioCtx();
+        const src=ctx.createBufferSource();
+        src.buffer=audioBuf;
+        src.connect(ctx.destination);
+        src.onended=()=>{
+            if(isOrig) origIsPlaying=false; else denoiseIsPlaying=false;
             document.getElementById('denoisePlayBtn').textContent='▶ 재생';
         };
-        denoiseSourceNode.start();
-        denoiseIsPlaying=true;
+        src.start();
+        if(isOrig){origSourceNode=src; origIsPlaying=true;}
+        else{denoiseSourceNode=src; denoiseIsPlaying=true;}
         document.getElementById('denoisePlayBtn').textContent='⏹ 정지';
-        log('Web Audio API로 재생 중','info');
+        log(`${isOrig?'원본':'디노이즈'} Web Audio API로 재생 중`,'info');
         return;
     }
 
     // 폴백: Audio 엘리먼트
-    if(denoiseAudioEl){
-        denoiseAudioEl.play().then(()=>{
-            denoiseIsPlaying=true;
+    const audioEl=isOrig?origAudioEl:denoiseAudioEl;
+    if(audioEl){
+        audioEl.play().then(()=>{
+            if(isOrig) origIsPlaying=true; else denoiseIsPlaying=true;
             document.getElementById('denoisePlayBtn').textContent='⏹ 정지';
         }).catch(e=>log('재생 실패: '+e.message,'err'));
     }
 }
 
+// 오디오 탭 선택 (orig / denoised)
+function selectAudioTab(tab){
+    // 재생 중이면 정지
+    if(origIsPlaying){
+        if(origSourceNode){try{origSourceNode.stop();}catch(e){}}
+        if(origAudioEl){origAudioEl.pause();origAudioEl.currentTime=0;}
+        origIsPlaying=false;
+    }
+    if(denoiseIsPlaying){
+        if(denoiseSourceNode){try{denoiseSourceNode.stop();}catch(e){}}
+        if(denoiseAudioEl){denoiseAudioEl.pause();denoiseAudioEl.currentTime=0;}
+        denoiseIsPlaying=false;
+    }
+    document.getElementById('denoisePlayBtn').textContent='▶ 재생';
+
+    selectedAudioTab=tab;
+    const isOrig=(tab==='orig');
+
+    // 탭 테두리 강조
+    document.getElementById('tabOrig').style.borderColor=isOrig?'#8b949e':'var(--border)';
+    document.getElementById('tabDenoise').style.borderColor=isOrig?'var(--border)':'#3fb950';
+
+    // 큰 캔버스 레이블 & 파형 업데이트
+    const label=document.getElementById('audioCanvasLabel');
+    if(isOrig){
+        label.textContent='원본';
+        label.style.color='#8b949e';
+        if(origWavBuf) drawDenoiseWaveform(new Uint8Array(origWavBuf), '#8b949e');
+    } else {
+        label.textContent='DENOISED';
+        label.style.color='#3fb950';
+        if(denoiseWavBytes) drawDenoiseWaveform(denoiseWavBytes, '#3fb950');
+    }
+}
+
 // 디노이즈 WAV → 캔버스 파형
-function drawDenoiseWaveform(wavBytes){
+function drawDenoiseWaveform(wavBytes, color='#3fb950'){
     const canvas=document.getElementById('denoiseCanvas');
     const rect=canvas.getBoundingClientRect();
     const dpr=devicePixelRatio;
@@ -1206,8 +1287,8 @@ function drawDenoiseWaveform(wavBytes){
     // 파형
     if(!samples.length) return;
     const step=Math.max(1,Math.floor(samples.length/W));
-    ctx.strokeStyle='#3fb950'; ctx.lineWidth=1.5;
-    ctx.shadowColor='#3fb950'; ctx.shadowBlur=6;
+    ctx.strokeStyle=color; ctx.lineWidth=1.5;
+    ctx.shadowColor=color; ctx.shadowBlur=6;
     ctx.beginPath();
     for(let x=0;x<W;x++){
         const idx=Math.floor(x*samples.length/W);

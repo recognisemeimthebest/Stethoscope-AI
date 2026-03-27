@@ -15,10 +15,9 @@
  *   - Bug fix: setMinPreferred called twice (second should be setMaxPreferred)
  *   - One statement per line for readability and debugging
  *   - Header guard added
- *   - NVS persistent storage for mode, selected patient, BLE state
+ *   - NVS persistent storage for mode, BLE state
  *   - Respiratory Rate (RR) detection via energy envelope onset detection
  *   - drawRR() / drawBreathIndicator() for lung mode UI
- *   - Signal quality indicator (3-bar: None/Weak/Good) for heart & lung modes
  *   - BLE disconnect during recording: REC_FAIL notification + UI feedback
  *   - REC_DONE notification on successful recording completion
  *   - Watchdog Timer (esp_task_wdt) for audioTask and loop()
@@ -169,14 +168,6 @@ static constexpr int DRAW_INTERVAL_MS = 15;
 static constexpr int BPM_Y = 165;
 static constexpr int BPM_H = 40;
 
-// Signal quality indicator position (waveform 영역 바로 위)
-static constexpr int SIG_QUALITY_Y     = 65;
-static constexpr int SIG_BAR_WIDTH     = 3;
-static constexpr int SIG_BAR_GAP       = 2;
-static const int SIG_BAR_HEIGHTS[] = {4, 7, 10};  // 3단 바 높이
-static constexpr int SIG_BAR_COUNT = 3;
-static constexpr unsigned long SIG_UPDATE_INTERVAL_MS = 300UL;
-
 // ══════════════════════════════════════════════════════════
 //  UI Layout Constants (AV Rule 27: no magic numbers)
 // ══════════════════════════════════════════════════════════
@@ -233,7 +224,6 @@ static constexpr int AUDIO_TASK_CORE       = 0;
 // ══════════════════════════════════════════════════════════
 static const char* const NVS_NAMESPACE    = "stetho";
 static const char* const NVS_KEY_MODE     = "mode";
-static const char* const NVS_KEY_PATIENT  = "patient";
 static const char* const NVS_KEY_BLE_ON   = "bleOn";
 
 // ══════════════════════════════════════════════════════════
@@ -258,12 +248,6 @@ enum ButtonEvent {
     BTN_NONE       = 0,
     BTN_SHORT      = 1,
     BTN_LONG       = 2
-};
-
-enum SignalLevel {
-    SIG_NONE = 0,
-    SIG_WEAK = 1,
-    SIG_GOOD = 2
 };
 
 // ══════════════════════════════════════════════════════════
@@ -412,7 +396,6 @@ static void nvsLoad()
         currentMode = MODE_HEART;
     }
 
-    selectedPatient = nvs.getString(NVS_KEY_PATIENT, "NONE");
     isBleOn = nvs.getBool(NVS_KEY_BLE_ON, false);
 
     nvs.end();
@@ -423,13 +406,6 @@ static void nvsSaveMode()
 {
     nvs.begin(NVS_NAMESPACE, false);  // read-write
     nvs.putInt(NVS_KEY_MODE, currentMode);
-    nvs.end();
-}
-
-static void nvsSavePatient()
-{
-    nvs.begin(NVS_NAMESPACE, false);
-    nvs.putString(NVS_KEY_PATIENT, selectedPatient);
     nvs.end();
 }
 
@@ -1349,74 +1325,6 @@ static void drawAiResult()
     tft.drawString("L or R: CLOSE", cx, h - 15, 1);
 }
 
-// ── Signal Quality Indicator ──
-// 3단 바 표시: ■□□ = No Signal, ■■□ = Weak, ■■■ = Good
-static SignalLevel lastSigLevel = SIG_NONE;
-static unsigned long lastSigDrawTime = 0;
-
-static SignalLevel getSignalLevel()
-{
-    if (currentMode == MODE_HEART) {
-        if (!dsp_signal_ok) {
-            return SIG_NONE;
-        }
-        // envelope 크기로 Good/Weak 구분: BPM 감지 중이면 Good
-        if (dsp_bpm > BPM_DISPLAY_MIN) {
-            return SIG_GOOD;
-        }
-        return SIG_WEAK;
-    }
-    else if (currentMode == MODE_LUNG) {
-        if (!rr_signal_ok) {
-            return SIG_NONE;
-        }
-        if (rr_rate > RR_DISPLAY_MIN) {
-            return SIG_GOOD;
-        }
-        return SIG_WEAK;
-    }
-    return SIG_NONE;
-}
-
-static void drawSignalQuality()
-{
-    if (currentState != ACTIVE || currentMode == MODE_PATIENT || isRecording5Sec) {
-        return;
-    }
-    if ((millis() - lastSigDrawTime) < SIG_UPDATE_INTERVAL_MS) {
-        return;
-    }
-    lastSigDrawTime = millis();
-
-    const SignalLevel level = getSignalLevel();
-    if (level == lastSigLevel) {
-        return;
-    }
-    lastSigLevel = level;
-
-    // 표시 위치: 화면 우측 상단 (BT 아이콘 왼쪽)
-    const int baseX = tft.width() - 35;
-    const int baseY = SIG_QUALITY_Y;
-
-    // 배경 지우기
-    tft.fillRect(baseX - 2, baseY - 12, 20, 14, TFT_BLACK);
-
-    // 모드별 색상
-    const uint16_t activeColor = (currentMode == MODE_HEART) ? TFT_RED : TFT_CYAN;
-
-    for (int i = 0; i < SIG_BAR_COUNT; i++) {
-        const int x = baseX + i * (SIG_BAR_WIDTH + SIG_BAR_GAP);
-        const int h = SIG_BAR_HEIGHTS[i];
-        const int y = baseY - h;
-
-        if (i <= static_cast<int>(level)) {
-            tft.fillRect(x, y, SIG_BAR_WIDTH, h, activeColor);
-        } else {
-            tft.fillRect(x, y, SIG_BAR_WIDTH, h, 0x3186);  // 어두운 회색
-        }
-    }
-}
-
 static void drawStatusBar()
 {
     tft.fillRect(0, 0, tft.width(), STATUS_BAR_HEIGHT, TFT_BLACK);
@@ -1516,8 +1424,6 @@ void drawUI()
         lastDrawnBle   = isBleOn;
         lastDrawnState = currentState;
         clearBPM();
-        lastSigLevel = SIG_NONE;
-        lastSigDrawTime = 0;
         drawStatusBar();
     }
 
@@ -1787,8 +1693,15 @@ void loop()
         }
     }
     else if (currentState == ACTIVE) {
-        // Left button: long = sleep, short = cycle mode
-        if (eventL == BTN_LONG) {
+        // AI 결과 대기 중에는 모드 변경과 녹음 차단
+        if (isWaitingAI) {
+            // 대기 중에는 슬립만 허용 (L 롱프레스)
+            if (eventL == BTN_LONG) {
+                enterDeepSleep();
+            }
+            // 나머지 버튼 입력은 무시
+        }
+        else if (eventL == BTN_LONG) {
             enterDeepSleep();
         } else if (eventL == BTN_SHORT) {
             currentMode++;
@@ -1800,42 +1713,43 @@ void loop()
             drawUI();
         }
 
-        // Right button: mode-dependent
-        if (currentMode == MODE_PATIENT) {
-            if (eventR == BTN_SHORT) {
-                if (patientCount > 0) {
-                    currentPatIdx = (currentPatIdx + 1) % patientCount;
-                    uiNeedsUpdate = true;
-                    drawUI();
-                }
-            } else if (eventR == BTN_LONG) {
-                if (patientCount > 0) {
-                    selectedPatient = patientList[currentPatIdx].id;
-                    nvsSavePatient();
-                    currentMode = MODE_HEART;
-                    nvsSaveMode();
-                    uiNeedsUpdate = true;
+        // Right button: mode-dependent (AI 대기 중에는 모든 R 버튼 무시)
+        if (!isWaitingAI) {
+            if (currentMode == MODE_PATIENT) {
+                if (eventR == BTN_SHORT) {
+                    if (patientCount > 0) {
+                        currentPatIdx = (currentPatIdx + 1) % patientCount;
+                        uiNeedsUpdate = true;
+                        drawUI();
+                    }
+                } else if (eventR == BTN_LONG) {
+                    if (patientCount > 0) {
+                        selectedPatient = patientList[currentPatIdx].id;
+                        currentMode = MODE_HEART;
+                        nvsSaveMode();
+                        uiNeedsUpdate = true;
 
-                    // Show selection confirmation
-                    tft.fillScreen(TFT_BLACK);
-                    tft.setTextColor(TFT_GREEN, TFT_BLACK);
-                    tft.drawString("SELECTED!", tft.width() / 2, tft.height() / 2 - 10, 4);
-                    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                    tft.drawString(selectedPatient, tft.width() / 2, tft.height() / 2 + 20, 2);
-                    delay(PATIENT_SELECT_DELAY_MS);
+                        // Show selection confirmation
+                        tft.fillScreen(TFT_BLACK);
+                        tft.setTextColor(TFT_GREEN, TFT_BLACK);
+                        tft.drawString("SELECTED!", tft.width() / 2, tft.height() / 2 - 10, 4);
+                        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                        tft.drawString(selectedPatient, tft.width() / 2, tft.height() / 2 + 20, 2);
+                        delay(PATIENT_SELECT_DELAY_MS);
 
-                    btnR.reset();
-                    drawUI();
+                        btnR.reset();
+                        drawUI();
+                    }
                 }
             }
-        }
-        else {
-            // Heart/Lung mode: right button triggers recording
-            if (eventR == BTN_SHORT) {
-                if (deviceConnected) {
-                    startRecording();
-                } else {
-                    changeState(POPUP);
+            else {
+                // Heart/Lung mode: right button triggers recording
+                if (eventR == BTN_SHORT) {
+                    if (deviceConnected) {
+                        startRecording();
+                    } else {
+                        changeState(POPUP);
+                    }
                 }
             }
         }
@@ -1851,7 +1765,6 @@ void loop()
         && !isWaitingAI) {
 
         drawWaveform(sharedAveragedSample);
-        drawSignalQuality();
         if (currentMode == MODE_HEART) {
             drawBPM();
             drawBeatIndicator();
