@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280">
+    <title>AI Stethoscope — Presentation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <style>
+        :root {
+            --bg:#0d1117;--card:#161b22;--card2:#1c2128;--border:#30363d;
+            --txt:#e6edf3;--txt2:#8b949e;
+            --green:#3fb950;--blue:#58a6ff;--red:#f85149;--yellow:#d29922;--purple:#bc8cff;
+        }
+        *{box-sizing:border-box;margin:0;padding:0;}
+        html,body{height:100vh;overflow:hidden;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;
+            background:var(--bg);color:var(--txt);}
+
+        /* Header */
+        .hdr{height:56px;background:var(--card);border-bottom:1px solid var(--border);
+            display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0;}
+        .hdr-logo{font-size:24px;}
+        .hdr-title{font-size:18px;font-weight:800;}
+        .hdr-sub{font-size:11px;color:var(--txt2);margin-left:4px;}
+        .hdr-right{display:flex;gap:8px;margin-left:auto;align-items:center;}
+        .badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;
+            border-radius:20px;font-size:11px;font-weight:700;border:1px solid transparent;}
+        .dot{width:7px;height:7px;border-radius:50%;}
+        .ok  {background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.3);color:var(--green);}
+        .ok   .dot{background:var(--green);animation:blink 2s infinite;}
+        .err {background:rgba(248,81,73,.12);border-color:rgba(248,81,73,.3);color:var(--red);}
+        .err  .dot{background:var(--red);}
+        .warn{background:rgba(210,153,34,.12);border-color:rgba(210,153,34,.3);color:var(--yellow);}
+        .warn .dot{background:var(--yellow);animation:blink 1s infinite;}
+        .off {background:rgba(139,148,158,.08);border-color:rgba(139,148,158,.2);color:var(--txt2);}
+        .off  .dot{background:var(--txt2);}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+        .clock{font-family:monospace;font-size:13px;color:var(--txt2);}
+
+        /* Layout */
+        .main{display:grid;grid-template-columns:250px 1fr 340px;height:calc(100vh - 56px);}
+        .col{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border);}
+        .col:last-child{border-right:none;}
+        .sec-hdr{background:var(--card);border-bottom:1px solid var(--border);padding:9px 16px;
+            font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--txt2);
+            text-transform:uppercase;display:flex;align-items:center;justify-content:space-between;
+            flex-shrink:0;}
+
+        /* ── LEFT: Virtual Device ── */
+        .dev-host{flex:1;display:flex;flex-direction:column;align-items:center;
+            justify-content:center;padding:12px 0 8px;overflow:hidden;}
+        .dev-frame{
+            background:linear-gradient(145deg,#2c2c2c,#181818);
+            border-radius:18px;padding:8px 8px 12px;
+            box-shadow:0 14px 36px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.07),0 0 0 1px rgba(255,255,255,.04);
+            display:flex;flex-direction:column;align-items:center;gap:8px;
+        }
+        .dev-brand{font-size:8px;color:#444;letter-spacing:1.2px;text-transform:uppercase;font-family:monospace;}
+        .dev-bezel{background:#060606;border-radius:4px;padding:3px;
+            box-shadow:inset 0 0 14px rgba(0,0,0,.9);}
+        #devCanvas{display:block;border-radius:2px;}
+        .dev-btns-row{display:flex;justify-content:space-between;align-items:center;width:100%;padding:0 4px;}
+        .dev-btn-grp{display:flex;align-items:center;gap:4px;}
+        .dev-btn-lbl{font-size:8px;color:#444;text-transform:uppercase;letter-spacing:.4px;}
+        .dev-hw-btn{
+            width:36px;height:12px;
+            background:linear-gradient(to bottom,#4a4a4a,#333);
+            border:none;border-radius:4px;cursor:pointer;color:#777;font-size:8px;
+            box-shadow:0 2px 4px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08);
+            transition:all .08s;display:flex;align-items:center;justify-content:center;
+        }
+        .dev-hw-btn:hover{background:linear-gradient(to bottom,#5a5a5a,#424242);}
+        .dev-hw-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.5);}
+        .dev-hint{font-size:9px;color:#333;text-align:center;padding:2px 0;letter-spacing:.4px;}
+
+        /* ── CENTER: Waveform ── */
+        .wave-section{flex:1;display:flex;flex-direction:column;padding:12px;gap:10px;}
+        .rec-banner{background:rgba(248,81,73,.07);border:1px solid rgba(248,81,73,.3);
+            border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;
+            font-size:14px;font-weight:700;opacity:0;transition:opacity .3s;flex-shrink:0;}
+        .rec-banner.on{opacity:1;}
+        .rec-dot{width:12px;height:12px;border-radius:50%;background:var(--red);
+            animation:blink .8s infinite;flex-shrink:0;}
+        .rec-info{flex:1;}
+        .rec-pat{font-size:18px;font-weight:800;}
+        .rec-type{font-size:12px;color:var(--yellow);margin-top:1px;}
+        .rec-bar-bg{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;max-width:140px;}
+        .rec-bar{height:100%;background:var(--red);border-radius:3px;width:0%;transition:width .1s linear;}
+        .rec-time{font-size:20px;font-weight:900;color:var(--red);min-width:48px;text-align:right;font-family:monospace;}
+        .idle-banner{background:var(--card2);border:1px solid var(--border);border-radius:10px;
+            padding:11px 16px;display:flex;align-items:center;gap:10px;
+            font-size:13px;color:var(--txt2);flex-shrink:0;}
+        .idle-banner.hidden{display:none;}
+        .wave-wrap{flex:1;background:#070c10;border-radius:12px;overflow:hidden;
+            border:1px solid #1a2a1a;position:relative;}
+        #waveCanvas{display:block;width:100%;height:100%;}
+        .wave-lbl{position:absolute;top:12px;left:16px;font-size:14px;font-weight:800;letter-spacing:.5px;}
+        .wave-meta{position:absolute;top:12px;right:16px;font-size:11px;color:#2a3d2a;font-family:monospace;}
+        .vitals{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;flex-shrink:0;}
+        .vbox{background:var(--card2);border:1px solid var(--border);border-radius:10px;
+            padding:13px;text-align:center;}
+        .vval{font-size:36px;font-weight:900;line-height:1;font-family:monospace;}
+        .vunit{font-size:11px;color:var(--txt2);margin-top:3px;}
+        .vlbl {font-size:11px;color:var(--txt2);margin-top:5px;}
+        .vred{color:var(--red);}.vblue{color:var(--blue);}.vgreen{color:var(--green);}
+
+        /* ── RIGHT: AI + Patients ── */
+        .right-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+        .ai-section{padding:12px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+        .ai-card{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:16px;
+            transition:border-color .5s,box-shadow .5s;}
+        .ai-card.normal  {border-color:rgba(63,185,80,.5);box-shadow:0 0 20px rgba(63,185,80,.08);}
+        .ai-card.abnormal{border-color:rgba(248,81,73,.5);box-shadow:0 0 20px rgba(248,81,73,.08);}
+        .ai-card.recheck {border-color:rgba(210,153,34,.5);box-shadow:0 0 20px rgba(210,153,34,.08);}
+        .ai-empty{text-align:center;color:var(--txt2);font-size:13px;padding:24px 16px;line-height:1.8;}
+        .ai-hdr{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+        .ai-icon{width:50px;height:50px;border-radius:13px;display:flex;align-items:center;
+            justify-content:center;font-size:24px;flex-shrink:0;}
+        .ai-pat-info{font-size:11px;color:var(--txt2);margin-bottom:3px;}
+        .ai-label{font-size:28px;font-weight:900;}
+        .ai-conf-wrap{margin-left:auto;text-align:right;}
+        .ai-conf{font-size:36px;font-weight:900;font-family:monospace;}
+        .ai-conf-lbl{font-size:10px;color:var(--txt2);}
+        .prob-bars{display:flex;flex-direction:column;gap:7px;}
+        .prob-row{display:flex;align-items:center;gap:8px;}
+        .prob-name{font-size:11px;color:var(--txt2);min-width:66px;}
+        .prob-bg{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+        .prob-bar{height:100%;border-radius:4px;transition:width .6s ease;}
+        .prob-pct{font-size:11px;font-weight:700;min-width:44px;text-align:right;font-family:monospace;}
+        .warn-banner{background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.35);
+            border-radius:7px;padding:9px 12px;color:var(--yellow);font-size:12px;
+            font-weight:600;margin-top:10px;display:none;}
+        .hist-box{background:var(--card2);border:1px solid var(--border);border-radius:10px;
+            overflow:hidden;flex-shrink:0;display:none;margin:0 12px 12px;}
+        .hist-item{display:flex;justify-content:space-between;align-items:center;
+            padding:9px 13px;border-bottom:1px solid #21262d;font-size:12px;}
+        .hist-item:last-child{border-bottom:none;}
+        .hist-meta{font-size:10px;color:var(--txt2);margin-top:2px;}
+        .hist-label{font-weight:700;}
+
+        /* Patient list in right col */
+        .pat-section{flex:1;display:flex;flex-direction:column;min-height:0;}
+        .pat-list-r{flex:1;overflow-y:auto;padding:8px 12px;}
+        .pat-card{background:var(--card2);border:1px solid var(--border);border-radius:9px;
+            padding:11px 13px;margin-bottom:7px;display:flex;align-items:center;gap:10px;
+            transition:border-color .4s;}
+        .pat-card.recording{border-color:rgba(248,81,73,.5);animation:recpulse 1.5s infinite;}
+        @keyframes recpulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 0 6px rgba(248,81,73,.1)}}
+        .pat-av{width:34px;height:34px;border-radius:8px;background:var(--card);
+            border:1px solid var(--border);display:flex;align-items:center;
+            justify-content:center;font-size:15px;flex-shrink:0;}
+        .pat-name{font-size:14px;font-weight:700;}
+        .pat-meta{font-size:11px;color:var(--txt2);margin-top:2px;}
+        .pat-st{margin-left:auto;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;}
+        .ps-wait{background:rgba(139,148,158,.1);color:var(--txt2);}
+        .ps-rec {background:rgba(248,81,73,.15);color:var(--red);animation:blink 1s infinite;}
+
+        /* Mobile overlay */
+        #mobileWait{position:fixed;inset:0;background:rgba(13,17,23,.92);
+            display:flex;flex-direction:column;align-items:center;justify-content:center;
+            gap:14px;z-index:100;transition:opacity .6s,visibility .6s;}
+        #mobileWait.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+        .wait-icon{font-size:56px;animation:pulse 2s ease-in-out infinite;}
+        @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+        .wait-title{font-size:20px;font-weight:800;}
+        .wait-desc{font-size:13px;color:var(--txt2);text-align:center;line-height:1.7;}
+        @keyframes reveal{from{opacity:0;transform:scale(.95) translateY(5px)}to{opacity:1;transform:none}}
+        .reveal{animation:reveal .4s cubic-bezier(.22,1,.36,1) forwards;}
+    </style>
+</head>
+<body>
+
+<header class="hdr">
+    <div class="hdr-logo">🩺</div>
+    <div><span class="hdr-title">AI Stethoscope</span><span class="hdr-sub">Presentation Mirror</span></div>
+    <div class="hdr-right">
+        <span class="badge err" id="mqttBadge"><span class="dot"></span>MQTT 연결 중...</span>
+        <span class="badge off" id="bleBadge"><span class="dot"></span>BLE 대기</span>
+        <span class="badge off" id="mobileBadge"><span class="dot"></span>모바일 대기</span>
+        <span class="clock" id="clock"></span>
+    </div>
+</header>
+
+<div class="main">
+
+    <!-- ── LEFT: Virtual Device ── -->
+    <div class="col">
+        <div class="sec-hdr">📟 청진기 화면 <span style="font-size:9px;color:#333;font-weight:400;">클릭으로 버튼 동작</span></div>
+        <div class="dev-host">
+            <div class="dev-frame">
+                <div class="dev-brand">AI_Stetho &middot; ESP32</div>
+                <div class="dev-bezel"><canvas id="devCanvas"></canvas></div>
+                <div class="dev-btns-row">
+                    <div class="dev-btn-grp">
+                        <button class="dev-hw-btn" id="btnL">◀</button>
+                        <span class="dev-btn-lbl">L · Mode</span>
+                    </div>
+                    <div class="dev-btn-grp">
+                        <span class="dev-btn-lbl">R · Rec</span>
+                        <button class="dev-hw-btn" id="btnR">▶</button>
+                    </div>
+                </div>
+                <div class="dev-hint">Short: tap &nbsp;|&nbsp; Long: hold 1s</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── CENTER: Waveform ── -->
+    <div class="col">
+        <div class="sec-hdr">📈 실시간 파형</div>
+        <div class="wave-section">
+            <div class="rec-banner" id="recBanner">
+                <div class="rec-dot"></div>
+                <div class="rec-info">
+                    <div class="rec-pat" id="recPatLbl">—</div>
+                    <div class="rec-type" id="recTypeLbl">—</div>
+                </div>
+                <div class="rec-bar-bg"><div class="rec-bar" id="recBar"></div></div>
+                <div class="rec-time" id="recTime">0.0s</div>
+            </div>
+            <div class="idle-banner" id="idleBanner">
+                <span style="font-size:18px;">💤</span>
+                대기 중 — 모바일에서 녹음을 시작하면 파형이 표시됩니다
+            </div>
+            <div class="wave-wrap">
+                <canvas id="waveCanvas"></canvas>
+                <div class="wave-lbl" id="waveLbl" style="color:#2a3d2a;">IDLE</div>
+                <div class="wave-meta">8kHz · 16-bit mono</div>
+            </div>
+            <div class="vitals">
+                <div class="vbox"><div class="vval vred" id="bpmVal">—</div><div class="vunit">BPM</div><div class="vlbl">심박수</div></div>
+                <div class="vbox"><div class="vval vblue" id="rrVal">—</div><div class="vunit">회/min</div><div class="vlbl">호흡수</div></div>
+                <div class="vbox"><div class="vval vgreen" id="recCntVal">0</div><div class="vunit">회</div><div class="vlbl">녹음 횟수</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── RIGHT: AI Result + Patients ── -->
+    <div class="col">
+        <div class="sec-hdr">🧠 AI 분석 결과 <span class="badge warn" id="aiBadge" style="font-size:10px;padding:2px 7px;">대기</span></div>
+        <div class="right-body">
+            <div class="ai-section">
+                <div class="ai-card" id="aiCard">
+                    <div class="ai-empty" id="aiEmpty">녹음 후 AI 분석 결과가<br>여기에 표시됩니다</div>
+                    <div id="aiResultBody" style="display:none;">
+                        <div class="ai-hdr">
+                            <div class="ai-icon" id="aiIcon">❤️</div>
+                            <div>
+                                <div class="ai-pat-info" id="aiPatInfo">—</div>
+                                <div class="ai-label" id="aiLabel">—</div>
+                            </div>
+                            <div class="ai-conf-wrap">
+                                <div class="ai-conf" id="aiConf">—</div>
+                                <div class="ai-conf-lbl">신뢰도</div>
+                            </div>
+                        </div>
+                        <div class="prob-bars" id="probBars"></div>
+                        <div class="warn-banner" id="warnBanner"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="hist-box" id="histBox">
+                <div class="sec-hdr" style="font-size:10px;">최근 분석</div>
+                <div id="histList"></div>
+            </div>
+            <div class="pat-section">
+                <div class="sec-hdr">🏥 대기 환자 <span class="badge warn" id="patCntBadge" style="font-size:10px;padding:2px 7px;">0명</span></div>
+                <div class="pat-list-r" id="patList"><div style="text-align:center;color:var(--txt2);font-size:12px;padding:20px;">로딩 중...</div></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Mobile offline overlay -->
+<div id="mobileWait">
+    <div class="wait-icon">📱</div>
+    <div class="wait-title">모바일 연결 대기 중</div>
+    <div class="wait-desc">모바일에서 AI Stethoscope 앱을 열고<br>EMR 서버에 연결하면 자동으로 미러링이 시작됩니다</div>
+    <span class="badge warn" id="waitStatus"><span class="dot"></span>MQTT 연결 중...</span>
+</div>
+
+<script>
+// ─── Config ────────────────────────────────────────────
+const MQTT_URL       = 'ws://114.206.167.99:9001';
+const W_PTS          = 600;
+const REC_DUR        = 5000;
+const MOBILE_TIMEOUT = 10000;
+
+// ─── Main mirror state ──────────────────────────────────
+let mqttClient=null, isRecording=false, curMode='HEART';
+let recStartTime=0, recProgTimer=null, recCount=0;
+let patients=[], curPatient='NONE';
+let mobileOnline=false, mobileLastSeen=0;
+
+// Main waveform
+const waveCanvas=document.getElementById('waveCanvas');
+const wCtx=waveCanvas.getContext('2d');
+let waveData=new Float32Array(W_PTS);
+function resizeWaveCanvas(){const r=waveCanvas.getBoundingClientRect();waveCanvas.width=r.width*devicePixelRatio;waveCanvas.height=r.height*devicePixelRatio;}
+new ResizeObserver(resizeWaveCanvas).observe(waveCanvas);resizeWaveCanvas();
+
+function renderWave(){
+    const dpr=devicePixelRatio,W=waveCanvas.width/dpr,H=waveCanvas.height/dpr;
+    wCtx.save();wCtx.scale(dpr,dpr);
+    wCtx.fillStyle='#070c10';wCtx.fillRect(0,0,W,H);
+    wCtx.strokeStyle='#0d1a0d';wCtx.lineWidth=1;
+    for(let i=1;i<4;i++){const y=H*i/4;wCtx.beginPath();wCtx.moveTo(0,y);wCtx.lineTo(W,y);wCtx.stroke();}
+    for(let i=1;i<8;i++){const x=W*i/8;wCtx.beginPath();wCtx.moveTo(x,0);wCtx.lineTo(x,H);wCtx.stroke();}
+    wCtx.strokeStyle='#182618';wCtx.lineWidth=1;wCtx.beginPath();wCtx.moveTo(0,H/2);wCtx.lineTo(W,H/2);wCtx.stroke();
+    if(!isRecording){
+        wCtx.strokeStyle='#1e3a1e';wCtx.lineWidth=2;wCtx.beginPath();wCtx.moveTo(0,H/2);wCtx.lineTo(W,H/2);wCtx.stroke();
+        const a=0.3+0.3*Math.sin(Date.now()/500);wCtx.fillStyle=`rgba(63,185,80,${a})`;
+        wCtx.beginPath();wCtx.arc(W-20,H/2,4,0,Math.PI*2);wCtx.fill();
+        wCtx.restore();return;
+    }
+    const col=curMode==='HEART'?'#f85149':'#58a6ff',glowC=curMode==='HEART'?'rgba(248,81,73,':'rgba(88,166,255,';
+    wCtx.strokeStyle=glowC+'0.18)';wCtx.lineWidth=9;wCtx.lineJoin='round';
+    drawWavePath(W,H,wCtx);wCtx.stroke();
+    wCtx.strokeStyle=col;wCtx.lineWidth=2.2;wCtx.shadowColor=col;wCtx.shadowBlur=12;
+    drawWavePath(W,H,wCtx);wCtx.stroke();wCtx.shadowBlur=0;
+    wCtx.restore();
+}
+function drawWavePath(W,H,c){
+    c.beginPath();
+    for(let i=0;i<W_PTS;i++){const v=Math.max(-1,Math.min(1,waveData[i]));const x=W*i/(W_PTS-1);const y=H/2-v*H*.42;i===0?c.moveTo(x,y):c.lineTo(x,y);}
+}
+function waveLoop(){requestAnimationFrame(waveLoop);renderWave();}waveLoop();
+
+// ─── Clock ──────────────────────────────────────────────
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('ko-KR',{hour12:false});},1000);
+
+// ─── Badges ─────────────────────────────────────────────
+function setBadge(id,cls,txt){const el=document.getElementById(id);el.className='badge '+cls;el.innerHTML=`<span class="dot"></span>${txt}`;}
+
+// ─── Mobile presence ────────────────────────────────────
+function checkMobile(){
+    const on=mobileLastSeen>0&&(Date.now()-mobileLastSeen)<MOBILE_TIMEOUT;
+    if(on===mobileOnline)return;mobileOnline=on;
+    const ov=document.getElementById('mobileWait');
+    if(on){ov.classList.add('hidden');setBadge('mobileBadge','ok','모바일 연결됨');}
+    else{if(!isRecording)ov.classList.remove('hidden');setBadge('mobileBadge','off','모바일 오프라인');}
+}
+setInterval(checkMobile,1000);
+
+// ─── Patient list (right column) ────────────────────────
+function renderPatients(){
+    const list=document.getElementById('patList'),badge=document.getElementById('patCntBadge');
+    if(!patients.length){list.innerHTML='<div style="text-align:center;color:var(--txt2);font-size:12px;padding:20px;">환자 없음</div>';badge.textContent='0명';badge.className='badge warn';return;}
+    badge.textContent=patients.length+'명';badge.className='badge ok';
+    list.innerHTML='';
+    patients.forEach(p=>{
+        const isRec=isRecording&&curPatient===p.patient_id;
+        const d=document.createElement('div');d.className='pat-card'+(isRec?' recording':'');
+        d.innerHTML=`<div class="pat-av">${p.name.charAt(0)}</div>
+            <div><div class="pat-name">${p.name}</div><div class="pat-meta">${p.patient_id} · ${p.ward}</div></div>
+            <div class="pat-st ${isRec?'ps-rec':'ps-wait'}">${isRec?'● 녹음중':'대기'}</div>`;
+        list.appendChild(d);
+    });
+}
+
+// ─── Recording UI ───────────────────────────────────────
+function startRecording(patient,scanType,patName){
+    isRecording=true;curMode=scanType;curPatient=patient;
+    recStartTime=Date.now();recCount++;
+    document.getElementById('recBanner').classList.add('on');
+    document.getElementById('idleBanner').classList.add('hidden');
+    document.getElementById('recPatLbl').textContent=(patName||patient)+' · '+patient;
+    document.getElementById('recTypeLbl').textContent=scanType==='HEART'?'❤️  심음 측정 중':'🫁  호흡음 측정 중';
+    const wl=document.getElementById('waveLbl');
+    wl.textContent=scanType;wl.style.color=scanType==='HEART'?'#f85149':'#58a6ff';
+    document.getElementById('recCntVal').textContent=recCount;
+    clearInterval(recProgTimer);
+    recProgTimer=setInterval(()=>{
+        const e=Date.now()-recStartTime;
+        document.getElementById('recBar').style.width=Math.min(e/REC_DUR*100,100)+'%';
+        document.getElementById('recTime').textContent=(e/1000).toFixed(1)+'s';
+        if(e>REC_DUR+1000)clearInterval(recProgTimer);
+    },50);
+    renderPatients();
+}
+function stopRecording(){
+    isRecording=false;clearInterval(recProgTimer);
+    document.getElementById('recBanner').classList.remove('on');
+    document.getElementById('idleBanner').classList.remove('hidden');
+    const wl=document.getElementById('waveLbl');wl.textContent='IDLE';wl.style.color='#2a3d2a';
+    for(let i=0;i<W_PTS;i++)waveData[i]*=0;
+    renderPatients();
+}
+
+// ─── Wave chunk ─────────────────────────────────────────
+function handleWaveChunk(msg){
+    const bytes=new Uint8Array(msg);
+    if(bytes.byteLength<2)return;
+    const ab=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
+    const int16=new Int16Array(ab);
+    const n=Math.min(int16.length,W_PTS);
+    for(let i=0;i<n;i++)waveData[i]=int16[i]/32767;
+}
+
+// ─── AI Result ──────────────────────────────────────────
+function handleAiResult(raw){
+    try{
+        const r=JSON.parse(raw);
+        if(['MODEL_NOT_LOADED','ERROR'].includes(r.label))return;
+        const isUnknown=r.label==='Unknown'||r.action==='RE_AUSCULTATE';
+        const isHeart=r.scan_type==='HEART';
+        document.getElementById('aiEmpty').style.display='none';
+        const body=document.getElementById('aiResultBody');
+        body.style.display='block';body.classList.remove('reveal');void body.offsetWidth;body.classList.add('reveal');
+        const card=document.getElementById('aiCard');
+        card.className='ai-card '+(isUnknown?'recheck':r.label.toLowerCase());
+        document.getElementById('aiIcon').textContent=isHeart?'❤️':'🫁';
+        document.getElementById('aiIcon').style.background=isHeart?'rgba(248,81,73,.15)':'rgba(88,166,255,.15)';
+        document.getElementById('aiPatInfo').textContent=`${r.patient_id} · ${r.patient_name} · ${isHeart?'심음':'호흡음'}`;
+        const labelEl=document.getElementById('aiLabel');
+        if(isUnknown){labelEl.textContent='⚠️ 재청진 필요';labelEl.style.color='var(--yellow)';}
+        else{labelEl.textContent=r.label;labelEl.style.color=r.label==='Normal'?'var(--green)':'var(--red)';}
+        const bars=document.getElementById('probBars');bars.innerHTML='';
+        let conf=0;
+        if(isHeart){
+            conf=isUnknown?(r.prob_unknown||0):Math.max(r.prob_normal||0,r.prob_abnormal||0);
+            addBar(bars,'Normal',r.prob_normal||0,'var(--green)');
+            addBar(bars,'Abnormal',r.prob_abnormal||0,'var(--red)');
+            addBar(bars,'Unknown',r.prob_unknown||0,'var(--yellow)');
+        }else{
+            const probs=r.probs||{};const sorted=Object.entries(probs).sort((a,b)=>b[1]-a[1]);
+            conf=sorted.length?sorted[0][1]:0;
+            const clrs={Normal:'var(--green)',Wheeze:'var(--yellow)',Crackle:'var(--red)',Complex:'var(--purple)',Stridor:'var(--blue)',Unknown:'var(--yellow)'};
+            sorted.forEach(([cls,prob])=>addBar(bars,cls,prob,clrs[cls]||'var(--txt2)'));
+        }
+        const ce=document.getElementById('aiConf');
+        ce.textContent=conf.toFixed(1)+'%';ce.style.color=isUnknown?'var(--yellow)':(conf>70?'var(--green)':'var(--yellow)');
+        const wb=document.getElementById('warnBanner');
+        if(isUnknown){wb.textContent=r.message||'유효한 청진음이 감지되지 않았습니다. 청진기를 다시 밀착해주세요.';wb.style.display='block';}else{wb.style.display='none';}
+        setBadge('aiBadge',isUnknown?'warn':(r.label==='Normal'?'ok':'err'),r.label);
+        const histBox=document.getElementById('histBox'),histList=document.getElementById('histList');
+        histBox.style.display='block';
+        const item=document.createElement('div');item.className='hist-item';
+        const dl=isUnknown?'재청진필요':r.label,lc=isUnknown?'var(--yellow)':(r.label==='Normal'?'var(--green)':'var(--red)');
+        const t=new Date().toLocaleTimeString('ko-KR',{hour12:false});
+        item.innerHTML=`<div><div style="font-size:13px;font-weight:600;">${r.patient_name||r.patient_id}</div><div class="hist-meta">${t} · ${r.scan_type}</div></div><div class="hist-label" style="color:${lc};">${dl}</div>`;
+        histList.insertBefore(item,histList.firstChild);
+        while(histList.children.length>6)histList.removeChild(histList.lastChild);
+
+        // Sync virtual device
+        devIsWait=false;devAiType=r.scan_type;
+        devAiLabel=isUnknown?'RECHECK':r.label;devAiConf=Math.round(conf);
+        devLastLabel=devAiLabel;devLastConf=devAiConf;
+        devState='ai_result';clearTimeout(devFakeTimer);
+    }catch(e){console.error(e);}
+}
+function addBar(container,label,prob,color){
+    const row=document.createElement('div');row.className='prob-row';
+    row.innerHTML=`<span class="prob-name">${label}</span><div class="prob-bg"><div class="prob-bar" style="width:${prob}%;background:${color};"></div></div><span class="prob-pct" style="color:${color};">${prob.toFixed(1)}%</span>`;
+    container.appendChild(row);
+}
+
+// ════════════════════════════════════════════════════════
+//  VIRTUAL DEVICE (mirrors ESP32 TFT 135×240)
+// ════════════════════════════════════════════════════════
+const DEV_W=135,DEV_H=240,DEV_SCALE=1.4;
+const devCanvas=document.getElementById('devCanvas');
+devCanvas.width=Math.round(DEV_W*DEV_SCALE);
+devCanvas.height=Math.round(DEV_H*DEV_SCALE);
+devCanvas.style.width=devCanvas.width+'px';
+devCanvas.style.height=devCanvas.height+'px';
+const dc=devCanvas.getContext('2d');
+
+// Virtual device state
+let devState='active'; // active | popup | pairing | ai_result | sleep | selected
+let devMode='heart';   // heart | lung | patient
+let devBleConn=false, devBleOn=false;
+let devIsRec=false, devIsWait=false;
+let devSelPat='NONE';
+let devPatients=[], devPatIdx=0;
+let devAiType='', devAiLabel='', devAiConf=0;
+let devLastLabel='', devLastConf=0;
+let devDotStep=0, devWaveT=0;
+let devBeatOn=false, devBreathOn=false;
+let devFakeTimer=null;
+let devBtnLDown=0, devBtnRDown=0;
+
+// ── Draw helpers ─────────────────────────────────────────
+function dFill(x,y,w,h,c){dc.fillStyle=c;dc.fillRect(x,y,w,h);}
+function dCircle(x,y,r,c,fill=true){dc.beginPath();dc.arc(x,y,r,0,Math.PI*2);if(fill){dc.fillStyle=c;dc.fill();}else{dc.strokeStyle=c;dc.stroke();}}
+function dLine(x0,y0,x1,y1,c,lw=1){dc.save();dc.strokeStyle=c;dc.lineWidth=lw;dc.beginPath();dc.moveTo(x0,y0);dc.lineTo(x1,y1);dc.stroke();dc.restore();}
+function dHLine(x,y,w,c){dFill(x,y,w,1,c);}
+function dText(text,x,y,size,color,align='center'){
+    dc.save();dc.fillStyle=color;dc.font=`bold ${size}px Arial,sans-serif`;
+    dc.textAlign=align;dc.textBaseline='middle';dc.fillText(text,x,y);dc.restore();
+}
+function dTextPad(text,x,y,size,color,padW,bgColor){
+    dc.save();dc.font=`bold ${size}px Arial,sans-serif`;dc.textAlign='center';dc.textBaseline='middle';
+    if(bgColor){dFill(x-padW/2,y-size/2-1,padW,size+2,bgColor);}
+    dc.fillStyle=color;dc.fillText(text,x,y);dc.restore();
+}
+
+// ── Status bar ───────────────────────────────────────────
+function devDrawStatusBar(){
+    dFill(0,0,DEV_W,16,'#000');
+    const btC=devBleConn?'#0ff':(devBleOn?'#fa0':'#2a2a2a');
+    const bx=DEV_W-15,by=8;
+    dLine(bx,by-6,bx,by+6,btC);dLine(bx,by-6,bx+4,by-3,btC);dLine(bx+4,by-3,bx,by,btC);
+    dLine(bx,by,bx+4,by+3,btC);dLine(bx+4,by+3,bx,by+6,btC);
+    if(devMode==='heart'&&devBeatOn&&!devIsWait&&devState==='active')dCircle(12,8,4,'#f00');
+    else if(devMode==='lung'&&devBreathOn&&!devIsWait&&devState==='active')dCircle(12,8,4,'#0ff');
+}
+
+// ── Waveform animation ───────────────────────────────────
+function devDrawWaveform(mode){
+    const wTop=75,wBot=150,wH=wBot-wTop,wLeft=10,wW=115,midY=wTop+wH/2;
+    dFill(wLeft,wTop,wW,wH,'#000');
+    // Grid dot on center line
+    dc.fillStyle='#1a2a1a';
+    for(let x=wLeft;x<wLeft+wW;x+=5)dc.fillRect(x,midY,1,1);
+
+    const col=mode==='heart'?'#e04040':'#00dddd';
+    dc.save();dc.strokeStyle=col;dc.lineWidth=1.5;dc.shadowColor=col;dc.shadowBlur=4;dc.beginPath();
+    for(let x=0;x<wW;x++){
+        const xn=x/wW;let amp=0;
+        if(mode==='heart'){
+            const phase=((xn*2.2+devWaveT*1.5)%1+1)%1;
+            if(phase>.08&&phase<.18)amp=Math.sin((phase-.08)/.10*Math.PI)*.88;
+            else if(phase>.22&&phase<.40)amp=Math.sin((phase-.22)/.18*Math.PI)*.22;
+            else if(phase>.70&&phase<.82)amp=Math.sin((phase-.70)/.12*Math.PI)*.11;
+        }else{
+            const phase=((xn+devWaveT*.38)%1+1)%1;
+            amp=Math.sin(phase*Math.PI*2)*.58;
+        }
+        const y=midY-amp*wH*.44;
+        x===0?dc.moveTo(wLeft+x,y):dc.lineTo(wLeft+x,y);
+    }
+    dc.stroke();dc.shadowBlur=0;dc.restore();
+}
+
+// ── Active screen ────────────────────────────────────────
+function devDrawActive(){
+    const cx=DEV_W/2;dFill(0,16,DEV_W,DEV_H-52,'#000');
+    if(devMode==='heart'){
+        dText('HEART',cx,30,21,'#e04040');
+        dText(devSelPat!=='NONE'?devSelPat:'-- --',cx,55,11,'#ddd');
+        if(devIsWait){
+            dTextPad(['.','..','...'][devDotStep],cx,68,11,'#ff0',60,'#000');
+        }else if(devLastLabel){
+            const lc=devLastLabel==='Normal'?'#0f0':devLastLabel==='RECHECK'?'#fa0':'#f00';
+            dTextPad(`[${devLastLabel} ${devLastConf}%]`,cx,68,8,lc,80,'#000');
+        }
+        if(!devIsWait){devDrawWaveform('heart');devDrawMetric('heart');}
+    }else if(devMode==='lung'){
+        dText('LUNG',cx,30,21,'#00dddd');
+        dText(devSelPat!=='NONE'?devSelPat:'-- --',cx,55,11,'#ddd');
+        if(devIsWait){
+            dTextPad(['.','..','...'][devDotStep],cx,68,11,'#ff0',60,'#000');
+        }else if(devLastLabel){
+            const lc=devLastLabel==='Normal'?'#0f0':devLastLabel==='RECHECK'?'#fa0':'#f00';
+            dTextPad(`[${devLastLabel} ${devLastConf}%]`,cx,68,8,lc,80,'#000');
+        }
+        if(!devIsWait){devDrawWaveform('lung');devDrawMetric('lung');}
+    }else{
+        devDrawPatientList();
+    }
+    devDrawBottomBar();
+}
+
+function devDrawMetric(mode){
+    dFill(0,165,DEV_W,40,'#000');
+    dText('measuring...',DEV_W/2,180,9,'#333');
+}
+
+function devDrawPatientList(){
+    const cx=DEV_W/2;
+    dText('PATIENT LIST',cx,20,10,'#ff0');
+    dHLine(10,35,DEV_W-20,'#333');
+    if(!devPatients.length){dText('No Patients',cx,80,10,'#aaa');return;}
+    dText('ID',10,43,8,'#444','left');dText('NAME',55,43,8,'#444','left');dText('WARD',106,43,8,'#444','left');
+    const start=Math.max(0,devPatIdx-2);
+    for(let i=0;i<3&&(start+i)<devPatients.length;i++){
+        const p=devPatients[start+i],pi=start+i,y=56+i*25;
+        const nm=p.name?p.name.substring(0,3):'???';
+        const wd=p.ward?(p.ward.includes('응급')?'ER':p.ward.replace(/[^0-9]/g,'').substring(0,3)||'?'):'?';
+        if(pi===devPatIdx){
+            dFill(0,y-9,DEV_W,24,'#004a00');dText('>',2,y,10,'#0f0','left');
+            dText(p.patient_id,11,y,10,'#fff','left');dText(nm,55,y,10,'#fff','left');dText(wd,106,y,10,'#fff','left');
+        }else{
+            dFill(0,y-9,DEV_W,24,'#000');
+            dText(p.patient_id,11,y,10,'#888','left');dText(nm,55,y,10,'#888','left');dText(wd,106,y,10,'#888','left');
+        }
+    }
+}
+
+function devDrawBottomBar(){
+    const cx=DEV_W/2,h=DEV_H;
+    dHLine(10,h-35,DEV_W-20,'#2a2a2a');
+    dText(devMode==='patient'?'L:MODE  R(Hold):SEL':'L:MODE  R:RECORD',cx,h-15,7,'#555');
+}
+
+// ── Special screens ──────────────────────────────────────
+function devDrawAiResult(){
+    const cx=DEV_W/2,h=DEV_H;
+    dFill(0,0,DEV_W,h,'#000');
+    const isH=devAiType==='HEART',tc=isH?'#e04040':'#00dddd';
+    dFill(0,0,DEV_W,22,tc);dText(isH?'♥ HEART':'~ LUNG',cx,11,11,'#000');
+    const rc=devAiLabel==='Normal'?'#0f0':devAiLabel==='RECHECK'?'#fa0':'#f00';
+    const icon=devAiLabel==='Normal'?'OK':devAiLabel==='RECHECK'?'!?':'!!';
+    dText(icon,cx,48,22,rc);
+    if(devAiLabel.length>8)dText(devAiLabel,cx,78,10,rc);
+    else dText(devAiLabel,cx,78,20,rc);
+    if(devAiLabel!=='RECHECK'&&devAiConf>0){
+        dText(devAiConf+'%',cx,112,22,'#fff');dText('confidence',cx,132,8,'#444');
+    }else if(devAiLabel==='RECHECK'){
+        dText('다시 청진해 주세요',cx,115,8,'#ff0');
+    }
+    dHLine(10,h-35,DEV_W-20,'#2a2a2a');dText('L or R: CLOSE',cx,h-15,7,'#555');
+}
+
+function devDrawPopup(){
+    const cx=DEV_W/2,h=DEV_H;
+    dText('! WARNING !',cx,40,11,'#fa0');dText('Bluetooth',cx,80,11,'#fff');
+    dText('Disconnected',cx,100,11,'#fff');dText('Pair now?',cx,140,9,'#0f0');
+    dHLine(10,h-35,DEV_W-20,'#2a2a2a');dText('L: NO | R: YES',cx,h-15,7,'#555');
+}
+
+function devDrawPairing(){
+    const cx=DEV_W/2,h=DEV_H;
+    dText('PAIRING',cx,40,21,'#ff0');dText('WAITING...',cx,100,11,'#fff');
+    dHLine(10,h-35,DEV_W-20,'#2a2a2a');dText('PRESS R TO CANCEL',cx,h-15,7,'#555');
+}
+
+// ── Main device draw ─────────────────────────────────────
+function devDraw(){
+    dc.save();dc.scale(DEV_SCALE,DEV_SCALE);
+    dFill(0,0,DEV_W,DEV_H,'#000');
+    if(devState==='sleep'){
+        dFill(0,0,DEV_W,DEV_H,'#000'); // completely dark
+    }else if(devState==='selected'){
+        dText('SELECTED!',DEV_W/2,DEV_H/2-12,21,'#0f0');
+        dText(devSelPat,DEV_W/2,DEV_H/2+18,11,'#fff');
+    }else if(devIsRec){
+        dFill(0,0,DEV_W,DEV_H,'#050505');
+        // Small pulsing REC indicator
+        const a=0.4+0.4*Math.sin(Date.now()/300);
+        dc.fillStyle=`rgba(200,0,0,${a})`;dc.beginPath();dc.arc(DEV_W/2-16,DEV_H/2,5,0,Math.PI*2);dc.fill();
+        dText('REC',DEV_W/2+2,DEV_H/2,11,`rgba(160,0,0,${a})`);
+    }else if(devState==='ai_result'){
+        devDrawAiResult();
+    }else if(devState==='popup'){
+        devDrawStatusBar();dFill(0,16,DEV_W,DEV_H-16,'#000');devDrawPopup();
+    }else if(devState==='pairing'){
+        devDrawStatusBar();dFill(0,16,DEV_W,DEV_H-16,'#000');devDrawPairing();
+    }else{
+        devDrawStatusBar();devDrawActive();
+    }
+    dc.restore();
+}
+function devLoop(){requestAnimationFrame(devLoop);devWaveT+=0.016;devDraw();}devLoop();
+
+// Beat/breath flash timers
+setInterval(()=>{
+    if(devState==='active'&&!devIsRec&&!devIsWait){
+        if(devMode==='heart'){devBeatOn=true;setTimeout(()=>devBeatOn=false,100);}
+        else if(devMode==='lung'){devBreathOn=true;setTimeout(()=>devBreathOn=false,150);}
+    }
+},750);
+setInterval(()=>{if(devIsWait)devDotStep=(devDotStep+1)%3;},500);
+
+// ── Virtual button logic ─────────────────────────────────
+function devLShort(){
+    if(devIsRec)return;
+    if(devState==='ai_result'){devState='active';return;}
+    if(devState==='popup'){devState='active';return;}
+    if(devIsWait)return;
+    if(devState==='active'){
+        if(devMode==='heart')devMode='lung';
+        else if(devMode==='lung')devMode='patient';
+        else devMode='heart';
+    }
+}
+function devLLong(){
+    const prev=devState;devState='sleep';
+    setTimeout(()=>{if(devState==='sleep')devState=prev;},1500);
+}
+function devRShort(){
+    if(devIsRec)return;
+    if(devIsWait)return;
+    if(devState==='ai_result'){devLastLabel=devAiLabel;devLastConf=devAiConf;devState='active';return;}
+    if(devState==='popup'){devState='pairing';devBleOn=true;return;}
+    if(devState==='pairing'){devState='active';devBleOn=false;return;}
+    if(devState==='active'){
+        if(devMode==='patient'){if(devPatients.length>0)devPatIdx=(devPatIdx+1)%devPatients.length;}
+        else devStartFake();
+    }
+}
+function devRLong(){
+    if(devState==='active'&&devMode==='patient'&&devPatients.length>0){
+        devSelPat=devPatients[devPatIdx].patient_id;
+        devState='selected';
+        setTimeout(()=>{devMode='heart';devState='active';},1000);
+    }
+}
+
+function devStartFake(){
+    if(devIsRec||devIsWait)return;
+    devIsRec=true;clearTimeout(devFakeTimer);
+    devFakeTimer=setTimeout(()=>{
+        devIsRec=false;devIsWait=true;devDotStep=0;
+        devFakeTimer=setTimeout(()=>{
+            devIsWait=false;
+            devAiType=devMode.toUpperCase();
+            devAiLabel='Normal';devAiConf=82+Math.floor(Math.random()*14);
+            devState='ai_result';
+        },3000);
+    },5000);
+}
+
+// Button event binding
+(()=>{
+    const BL=document.getElementById('btnL'),BR=document.getElementById('btnR');
+    BL.addEventListener('mousedown',()=>devBtnLDown=Date.now());
+    BL.addEventListener('mouseleave',()=>devBtnLDown=0);
+    BL.addEventListener('mouseup',()=>{if(!devBtnLDown)return;const h=Date.now()-devBtnLDown;devBtnLDown=0;h>=800?devLLong():devLShort();});
+    BR.addEventListener('mousedown',()=>devBtnRDown=Date.now());
+    BR.addEventListener('mouseleave',()=>devBtnRDown=0);
+    BR.addEventListener('mouseup',()=>{if(!devBtnRDown)return;const h=Date.now()-devBtnRDown;devBtnRDown=0;h>=800?devRLong():devRShort();});
+    // Touch support
+    BL.addEventListener('touchstart',e=>{e.preventDefault();devBtnLDown=Date.now();},{passive:false});
+    BL.addEventListener('touchend',e=>{e.preventDefault();if(!devBtnLDown)return;const h=Date.now()-devBtnLDown;devBtnLDown=0;h>=800?devLLong():devLShort();},{passive:false});
+    BR.addEventListener('touchstart',e=>{e.preventDefault();devBtnRDown=Date.now();},{passive:false});
+    BR.addEventListener('touchend',e=>{e.preventDefault();if(!devBtnRDown)return;const h=Date.now()-devBtnRDown;devBtnRDown=0;h>=800?devRLong():devRShort();},{passive:false});
+})();
+
+// ════════════════════════════════════════════════════════
+//  MQTT
+// ════════════════════════════════════════════════════════
+function handleUIEvent(raw){
+    try{
+        const ev=JSON.parse(raw);
+        if(ev.type==='recording_start'){
+            const st=ev.scan_type||'HEART';
+            startRecording(ev.patient,st,ev.patient_name);
+            // Sync virtual device
+            devIsRec=true;devIsWait=false;
+            devMode=st.toLowerCase();devSelPat=ev.patient||devSelPat;
+            devState='active';devBleConn=true;clearTimeout(devFakeTimer);
+        }else if(ev.type==='recording_done'){
+            stopRecording();
+            devIsRec=false;devIsWait=true;devDotStep=0;clearTimeout(devFakeTimer);
+        }else if(ev.type==='ble_connected'){
+            setBadge('bleBadge','ok','BLE: '+(ev.device||'AI_Stetho'));
+            devBleConn=true;devBleOn=true;devState='active';
+        }else if(ev.type==='ble_disconnected'){
+            setBadge('bleBadge','err','BLE 끊김');
+            stopRecording();devBleConn=false;devIsRec=false;devIsWait=false;
+            clearTimeout(devFakeTimer);
+        }
+    }catch(e){console.error(e);}
+}
+function handleMobileHB(raw){
+    try{
+        const hb=JSON.parse(raw);
+        mobileLastSeen=Date.now();if(!mobileOnline)checkMobile();
+        if(hb.ble){setBadge('bleBadge','ok','BLE 연결됨');devBleConn=true;}
+        if(typeof hb.recCount==='number')document.getElementById('recCntVal').textContent=hb.recCount;
+        if(hb.patient&&hb.patient!=='NONE')devSelPat=hb.patient;
+        if(hb.scan_type&&!devIsRec&&!devIsWait)devMode=hb.scan_type.toLowerCase();
+    }catch(e){}
+}
+function handlePatients(raw){
+    try{
+        patients=JSON.parse(raw)||[];devPatients=patients;
+        devPatIdx=0;renderPatients();
+    }catch(e){}
+}
+
+function connectMQTT(){
+    mqttClient=mqtt.connect(MQTT_URL,{reconnectPeriod:3000,connectTimeout:10000});
+    mqttClient.on('connect',()=>{
+        setBadge('mqttBadge','ok','MQTT 연결됨');
+        const ws=document.getElementById('waitStatus');
+        ws.className='badge ok';ws.innerHTML='<span class="dot"></span>MQTT 연결 완료 — 모바일 대기 중';
+        mqttClient.subscribe('stethoscope/result');
+        mqttClient.subscribe('stethoscope/ui_event');
+        mqttClient.subscribe('stethoscope/wave_chunk');
+        mqttClient.subscribe('stethoscope/mobile_hb');
+        mqttClient.subscribe('stethoscope/res_patients',()=>{
+            mqttClient.publish('stethoscope/req_patients','give_me_list');
+        });
+    });
+    mqttClient.on('message',(topic,msg)=>{
+        if(topic==='stethoscope/result')handleAiResult(msg.toString());
+        else if(topic==='stethoscope/ui_event')handleUIEvent(msg.toString());
+        else if(topic==='stethoscope/wave_chunk')handleWaveChunk(msg);
+        else if(topic==='stethoscope/mobile_hb')handleMobileHB(msg.toString());
+        else if(topic==='stethoscope/res_patients')handlePatients(msg.toString());
+    });
+    mqttClient.on('error',()=>setBadge('mqttBadge','err','MQTT 오류'));
+    mqttClient.on('close',()=>setBadge('mqttBadge','err','MQTT 끊김'));
+}
+connectMQTT();
+</script>
+</body>
+</html>
