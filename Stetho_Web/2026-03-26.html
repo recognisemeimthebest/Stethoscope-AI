@@ -437,6 +437,28 @@ const wavStore = new Map();
 const WAV_STORE_MAX = 20;   // 최대 보관 개수 (메모리 누수 방지)
 let recIdCounter = 0;
 
+// ─── Presentation mirror (MQTT broadcast) ───────────────
+let wavePublishTimer = null;
+function publishUIEvent(ev) {
+    if (mqttClient?.connected)
+        mqttClient.publish('stethoscope/ui_event', JSON.stringify(ev));
+}
+function publishWaveChunk() {
+    if (!mqttClient?.connected || !isRecording) return;
+    const buf = new Int16Array(W_PTS);
+    for (let i = 0; i < W_PTS; i++)
+        buf[i] = Math.round(waveData[(wavePtr + i) % W_PTS] * 32767);
+    mqttClient.publish('stethoscope/wave_chunk', new Uint8Array(buf.buffer));
+}
+setInterval(() => {
+    if (mqttClient?.connected)
+        mqttClient.publish('stethoscope/mobile_hb', JSON.stringify({
+            ts: Date.now(), recording: isRecording,
+            ble: !!(bleDevice?.gatt?.connected),
+            patient: curRecPat, scan_type: curRecType, recCount
+        }));
+}, 5000);
+
 // Modal state
 let modalRecId = null;
 let modalSelectedPat = null;
@@ -582,6 +604,11 @@ function startRec(pat,type){
     document.getElementById('recTypeLbl').textContent=' ['+type+']';
     document.getElementById('recBanner').classList.add('on');
     document.body.classList.add('recording');
+    // Publish to presentation mirror
+    const rawName = patients.find(p => p.id === pat)?.rawName || '';
+    publishUIEvent({type:'recording_start', patient:pat, scan_type:type, patient_name:rawName});
+    clearInterval(wavePublishTimer);
+    wavePublishTimer = setInterval(publishWaveChunk, 100);
     const wl=document.getElementById('waveModeLbl');
     wl.textContent=type; wl.style.color=type==='HEART'?'#f85149':'#58a6ff';
     document.getElementById('devMode').textContent=type==='HEART'?'❤️ HEART':'🫁 LUNG';
@@ -596,6 +623,8 @@ function startRec(pat,type){
 
 function stopRec(){
     isRecording=false;
+    clearInterval(wavePublishTimer);
+    publishUIEvent({type:'recording_done'});
     clearInterval(recProgTimer);
     document.getElementById('recBanner').classList.remove('on');
     document.getElementById('recProg').style.width='0%';
@@ -837,6 +866,7 @@ async function connectBLE(){
         document.getElementById('devMode').textContent='HEART (기본)';
         setBadge('bleBadge','ok','BLE: '+name);
         log('청진기 연결 성공: '+name,'ok');
+        publishUIEvent({type:'ble_connected', device:name});
         const svc=await server.getPrimaryService(SVC_UUID);
         rxChar=await svc.getCharacteristic(AUD_UUID);
         cmdChar=await svc.getCharacteristic(CMD_UUID);
@@ -856,6 +886,7 @@ async function connectBLE(){
 
 function onBleDisc(){
     setBadge('bleBadge','err','BLE 연결 끊김');
+    publishUIEvent({type:'ble_disconnected'});
     // 녹음 중 끊김: 타이머 취소 + 불완전 오디오 폐기 (서버에 잘린 파일 전송 방지)
     clearTimeout(receiveTimeout);
     if(isRecording && webAudioChunks.length>0){
@@ -895,6 +926,14 @@ function onCmd(event){
         stopRec();
         clearTimeout(receiveTimeout); webAudioChunks=[];  // 불완전 오디오 폐기
         log(`녹음 실패 — ${reason} (REC_FAIL)`,'err');
+    } else if(cmd.startsWith('STATE:')){
+        // 펌웨어 상태 미러링 → MQTT로 전달
+        const parts=cmd.split(':');
+        const state=parts[1]||'';  // ACTIVE, WAITING, POPUP, PAIRING, AI_RESULT
+        const mode =parts[2]||'';  // HEART, LUNG, PATIENT
+        const pat  =parts[3]||'';  // patient_id
+        const pidx =parts[4]||'';  // currentPatIdx (PATIENT 모드 전용)
+        publishUIEvent({type:'device_state',state:state.toLowerCase(),mode:mode.toLowerCase(),patient:pat,patIdx:pidx});
     }
 }
 

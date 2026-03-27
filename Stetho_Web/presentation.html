@@ -752,6 +752,27 @@ function handleUIEvent(raw){
             setBadge('bleBadge','err','BLE 끊김');
             stopRecording();devBleConn=false;devIsRec=false;devIsWait=false;
             clearTimeout(devFakeTimer);
+        }else if(ev.type==='device_state'){
+            // 펌웨어 실제 상태 동기화 (진정한 미러링)
+            clearTimeout(devFakeTimer);
+            const st=ev.state;
+            if(st==='active'){
+                devState='active';
+                if(ev.mode&&ev.mode!=='')devMode=ev.mode;
+                if(ev.patient&&ev.patient!=='none'&&ev.patient!=='NONE')devSelPat=ev.patient;
+                if(ev.patIdx!==undefined&&ev.patIdx!==''){const idx=parseInt(ev.patIdx);if(!isNaN(idx))devPatIdx=idx;}
+                devIsRec=false;devIsWait=false;
+            }else if(st==='waiting'){
+                devIsWait=true;devIsRec=false;devDotStep=0;
+                if(ev.mode&&ev.mode!=='')devMode=ev.mode;
+                if(ev.patient&&ev.patient!=='none'&&ev.patient!=='NONE')devSelPat=ev.patient;
+            }else if(st==='popup'){
+                devState='popup';devIsRec=false;devIsWait=false;
+            }else if(st==='pairing'){
+                devState='pairing';devIsRec=false;devIsWait=false;
+            }else if(st==='ai_result'){
+                devState='ai_result';devIsWait=false;devIsRec=false;
+            }
         }
     }catch(e){console.error(e);}
 }
@@ -762,7 +783,7 @@ function handleMobileHB(raw){
         if(hb.ble){setBadge('bleBadge','ok','BLE 연결됨');devBleConn=true;}
         if(typeof hb.recCount==='number')document.getElementById('recCntVal').textContent=hb.recCount;
         if(hb.patient&&hb.patient!=='NONE')devSelPat=hb.patient;
-        if(hb.scan_type&&!devIsRec&&!devIsWait)devMode=hb.scan_type.toLowerCase();
+        // devMode는 펌웨어 STATE: 이벤트로만 동기화 (heartbeat의 scan_type은 마지막 녹음 타입일 뿐)
     }catch(e){}
 }
 function handlePatients(raw){

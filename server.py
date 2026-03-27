@@ -152,13 +152,25 @@ print("=" * 60)
 # ==========================================
 # AI 추론
 # ==========================================
+def _check_audio_energy(wav_path, threshold=0.005):
+    """오디오 RMS 에너지 확인 — 임계값 이하면 무음(노이즈)으로 판단"""
+    import librosa
+    y, _ = librosa.load(wav_path, sr=4000)
+    rms = np.sqrt(np.mean(y ** 2))
+    return rms, rms >= threshold
+
+
 def run_heart_analysis(wav_path, client, patient_id):
     """심음: 디노이즈 → 분류"""
     result = {"scan_type": "HEART", "denoised": False}
 
-    # 1) 디노이즈
+    # 0) 에너지 체크 — 무음이면 디노이즈 건너뛰고 원본으로 분류
+    rms, has_signal = _check_audio_energy(wav_path)
+    print(f"  [ENERGY] RMS={rms:.6f} → {'신호 감지' if has_signal else '무음 판정 (디노이즈 생략)'}")
+
+    # 1) 디노이즈 (신호가 있을 때만)
     denoised_path = wav_path
-    if DENOISE_MODEL_READY:
+    if DENOISE_MODEL_READY and has_signal:
         try:
             import soundfile as sf
             denoised_audio, sr = denoise_fn(wav_path, denoise_model)
@@ -176,16 +188,18 @@ def run_heart_analysis(wav_path, client, patient_id):
         except Exception as e:
             print(f"  [DENOISE] 실패: {e}")
 
-    # 2) 분류
+    # 2) 분류 (무음이면 원본, 신호 있으면 디노이즈된 파일)
+    classify_path = denoised_path if has_signal else wav_path
     if HEART_MODEL_READY:
         try:
-            classify_result = predict_heart_fn(denoised_path, heart_resnet, heart_xgb)
+            classify_result = predict_heart_fn(classify_path, heart_resnet, heart_xgb)
             result["label"]         = classify_result["label"]
             result["prob_normal"]   = classify_result["prob_normal"]
             result["prob_abnormal"] = classify_result["prob_abnormal"]
+            result["prob_unknown"]  = classify_result["prob_unknown"]
             result["segments"]      = classify_result["segments"]
             print(f"  [CLASSIFY] 심음: {result['label']} "
-                  f"(정상 {result['prob_normal']}% / 비정상 {result['prob_abnormal']}%)")
+                  f"(정상 {result['prob_normal']}% / 비정상 {result['prob_abnormal']}% / Unknown {result['prob_unknown']}%)")
         except Exception as e:
             print(f"  [CLASSIFY] 심음 분류 실패: {e}")
             result["label"] = "ERROR"
@@ -224,11 +238,16 @@ def run_lung_analysis(wav_path, client, patient_id):
 # ==========================================
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        init_emr()
+        try:
+            init_emr()
+        except Exception as e:
+            # init_emr 실패해도 subscribe는 반드시 실행
+            print(f"[WARN] EMR 초기화 실패: {e}")
         print("\n[SERVER] AI EMR 서버 가동 중!")
         client.subscribe("stethoscope/log")
         client.subscribe("stethoscope/wav/#")
         client.subscribe("stethoscope/req_patients")
+        print("[SERVER] 구독 완료: log / wav/# / req_patients")
     else:
         print(f"[ERROR] 브로커 연결 실패 (rc={rc})")
 
@@ -271,10 +290,9 @@ def on_message(client, userdata, message):
             rate, data = wavfile.read(io.BytesIO(wav_data))
             if len(data.shape) == 2:
                 data = data[:, 0]
-            data = data - np.mean(data)
-            max_val = np.max(np.abs(data))
-            if max_val > 0:
-                data = (data / max_val) * 32700
+            data = data.astype(np.float32)
+            data = data - np.mean(data)   # DC offset 제거만 수행 (피크 정규화 제거)
+            data = np.clip(data, -32768, 32767)
             data_mono = data.astype(np.int16)
             wavfile.write(filepath, rate, data_mono)
             print(f"[SAVE] {filename}")
@@ -298,20 +316,29 @@ def on_message(client, userdata, message):
             }
 
             if scan_type == "HEART":
-                result_data["prob_normal"]   = ai_result.get("prob_normal", 0)
-                result_data["prob_abnormal"] = ai_result.get("prob_abnormal", 0)
-                result_data["segments"]      = ai_result.get("segments", 0)
+                result_data["prob_normal"]   = float(ai_result.get("prob_normal", 0))
+                result_data["prob_abnormal"] = float(ai_result.get("prob_abnormal", 0))
+                result_data["prob_unknown"]  = float(ai_result.get("prob_unknown", 0))
+                result_data["segments"]      = int(ai_result.get("segments", 0))
                 ai_str = f"{ai_result.get('label','?')} (정상 {ai_result.get('prob_normal',0):.1f}%)"
             else:
-                result_data["probs"] = ai_result.get("probs", {})
+                result_data["probs"] = {k: float(v) for k, v in ai_result.get("probs", {}).items()}
                 top_prob = max(ai_result.get("probs", {}).values(), default=0)
                 ai_str = f"{ai_result.get('label','?')} ({top_prob:.1f}%)"
 
-            # EMR 업데이트
-            update_emr(patient_id, filepath, ai_str)
+            # Unknown 판정 시 다시 청진 지시
+            if ai_result.get("label") == "Unknown":
+                result_data["action"] = "RE_AUSCULTATE"
+                result_data["message"] = "유효한 청진음이 감지되지 않았습니다. 다시 청진해주세요."
+                ai_str = "Unknown (다시 청진 필요)"
 
-            # 결과 MQTT 발행
-            client.publish("stethoscope/result", json.dumps(result_data))
+            # EMR 업데이트 (Unknown 또는 모델 미로드/오류 시 상태 유지)
+            skip_labels = {"Unknown", "MODEL_NOT_LOADED", "ERROR"}
+            if ai_result.get("label") not in skip_labels:
+                update_emr(patient_id, filepath, ai_str)
+
+            # 결과 MQTT 발행 (numpy 타입 → Python 네이티브 변환)
+            client.publish("stethoscope/result", json.dumps(result_data, default=lambda x: float(x) if hasattr(x, 'item') else str(x)))
             print(f"[MQTT] AI 결과 전송: {p_name} → {ai_str}")
             print(f"{'='*50}\n")
 
@@ -323,7 +350,11 @@ def on_message(client, userdata, message):
 # ==========================================
 # 메인
 # ==========================================
-client = mqtt.Client()
+# paho-mqtt 2.x 호환 (CallbackAPIVersion 명시 없으면 on_connect 콜백 무시될 수 있음)
+try:
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+except AttributeError:
+    client = mqtt.Client()   # paho < 2.0 fallback
 client.on_connect = on_connect
 client.on_message = on_message
 

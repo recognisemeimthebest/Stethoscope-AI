@@ -417,6 +417,39 @@ static void nvsSaveBle()
 }
 
 // ══════════════════════════════════════════════════════════
+//  State Mirror — BLE CMD로 현재 상태를 웹에 전송
+// ══════════════════════════════════════════════════════════
+static void notifyDeviceState()
+{
+    if (!deviceConnected || pCmdChar == nullptr) { return; }
+    String note;
+    if (isWaitingAI) {
+        note = "STATE:WAITING:";
+        note += (currentMode == MODE_HEART) ? "HEART" : "LUNG";
+        note += ":"; note += selectedPatient;
+    } else {
+        note = "STATE:";
+        switch (currentState) {
+            case ACTIVE:
+                note += "ACTIVE:";
+                note += (currentMode == MODE_HEART) ? "HEART" :
+                        (currentMode == MODE_LUNG)  ? "LUNG"  : "PATIENT";
+                note += ":"; note += selectedPatient;
+                if (currentMode == MODE_PATIENT) {
+                    note += ":"; note += String(currentPatIdx);
+                }
+                break;
+            case POPUP:     note += "POPUP::NONE";   break;
+            case PAIRING:   note += "PAIRING::NONE"; break;
+            case AI_RESULT: note += "AI_RESULT::NONE"; break;
+            default: return;
+        }
+    }
+    pCmdChar->setValue(note.c_str());
+    pCmdChar->notify();
+}
+
+// ══════════════════════════════════════════════════════════
 //  State Management
 // ══════════════════════════════════════════════════════════
 static void changeState(AppState newState)
@@ -424,6 +457,7 @@ static void changeState(AppState newState)
     currentState = newState;
     uiNeedsUpdate = true;
     drawUI();
+    notifyDeviceState();
     btnL.reset();
     btnR.reset();
 }
@@ -1559,6 +1593,7 @@ static void stopRecording()
 
     tftWake();
     uiNeedsUpdate = true;
+    notifyDeviceState();
     btnL.reset();
     btnR.reset();
 }
@@ -1711,6 +1746,7 @@ void loop()
             nvsSaveMode();
             uiNeedsUpdate = true;
             drawUI();
+            notifyDeviceState();
         }
 
         // Right button: mode-dependent (AI 대기 중에는 모든 R 버튼 무시)
@@ -1721,6 +1757,7 @@ void loop()
                         currentPatIdx = (currentPatIdx + 1) % patientCount;
                         uiNeedsUpdate = true;
                         drawUI();
+                        notifyDeviceState();
                     }
                 } else if (eventR == BTN_LONG) {
                     if (patientCount > 0) {
@@ -1739,6 +1776,7 @@ void loop()
 
                         btnR.reset();
                         drawUI();
+                        notifyDeviceState();
                     }
                 }
             }
