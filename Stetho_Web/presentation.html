@@ -65,44 +65,87 @@
         .dev-hw-btn{
             width:36px;height:12px;
             background:linear-gradient(to bottom,#4a4a4a,#333);
-            border:none;border-radius:4px;cursor:pointer;color:#777;font-size:8px;
+            border:none;border-radius:4px;cursor:default;color:#777;font-size:8px;
             box-shadow:0 2px 4px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08);
-            transition:all .08s;display:flex;align-items:center;justify-content:center;
+            display:flex;align-items:center;justify-content:center;pointer-events:none;
         }
-        .dev-hw-btn:hover{background:linear-gradient(to bottom,#5a5a5a,#424242);}
-        .dev-hw-btn:active{transform:translateY(1px);box-shadow:0 1px 2px rgba(0,0,0,.5);}
         .dev-hint{font-size:9px;color:#333;text-align:center;padding:2px 0;letter-spacing:.4px;}
 
-        /* ── CENTER: Waveform ── */
-        .wave-section{flex:1;display:flex;flex-direction:column;padding:12px;gap:10px;}
+        /* ── CENTER: Waveform + EMR ── */
+        .center-body{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+        .wave-section{display:flex;flex-direction:column;padding:10px 12px;gap:8px;flex-shrink:0;}
         .rec-banner{background:rgba(248,81,73,.07);border:1px solid rgba(248,81,73,.3);
-            border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;
+            border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:12px;
             font-size:14px;font-weight:700;opacity:0;transition:opacity .3s;flex-shrink:0;}
         .rec-banner.on{opacity:1;}
         .rec-dot{width:12px;height:12px;border-radius:50%;background:var(--red);
             animation:blink .8s infinite;flex-shrink:0;}
         .rec-info{flex:1;}
-        .rec-pat{font-size:18px;font-weight:800;}
-        .rec-type{font-size:12px;color:var(--yellow);margin-top:1px;}
-        .rec-bar-bg{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;max-width:140px;}
+        .rec-pat{font-size:16px;font-weight:800;}
+        .rec-type{font-size:11px;color:var(--yellow);margin-top:1px;}
+        .rec-bar-bg{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;max-width:120px;}
         .rec-bar{height:100%;background:var(--red);border-radius:3px;width:0%;transition:width .1s linear;}
-        .rec-time{font-size:20px;font-weight:900;color:var(--red);min-width:48px;text-align:right;font-family:monospace;}
-        .idle-banner{background:var(--card2);border:1px solid var(--border);border-radius:10px;
-            padding:11px 16px;display:flex;align-items:center;gap:10px;
-            font-size:13px;color:var(--txt2);flex-shrink:0;}
+        .rec-time{font-size:18px;font-weight:900;color:var(--red);min-width:44px;text-align:right;font-family:monospace;}
+        .idle-banner{background:var(--card2);border:1px solid var(--border);border-radius:8px;
+            padding:8px 14px;display:flex;align-items:center;gap:8px;
+            font-size:12px;color:var(--txt2);flex-shrink:0;}
         .idle-banner.hidden{display:none;}
-        .wave-wrap{flex:1;background:#070c10;border-radius:12px;overflow:hidden;
+        .wave-wrap{height:120px;flex-shrink:0;background:#070c10;border-radius:10px;overflow:hidden;
             border:1px solid #1a2a1a;position:relative;}
         #waveCanvas{display:block;width:100%;height:100%;}
-        .wave-lbl{position:absolute;top:12px;left:16px;font-size:14px;font-weight:800;letter-spacing:.5px;}
-        .wave-meta{position:absolute;top:12px;right:16px;font-size:11px;color:#2a3d2a;font-family:monospace;}
-        .vitals{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;flex-shrink:0;}
-        .vbox{background:var(--card2);border:1px solid var(--border);border-radius:10px;
-            padding:13px;text-align:center;}
-        .vval{font-size:36px;font-weight:900;line-height:1;font-family:monospace;}
-        .vunit{font-size:11px;color:var(--txt2);margin-top:3px;}
-        .vlbl {font-size:11px;color:var(--txt2);margin-top:5px;}
+        .wave-lbl{position:absolute;top:8px;left:12px;font-size:12px;font-weight:800;letter-spacing:.5px;}
+        .wave-meta{position:absolute;top:8px;right:12px;font-size:10px;color:#2a3d2a;font-family:monospace;}
+        .vitals{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;flex-shrink:0;}
+        .vbox{background:var(--card2);border:1px solid var(--border);border-radius:8px;
+            padding:8px;text-align:center;}
+        .vval{font-size:26px;font-weight:900;line-height:1;font-family:monospace;}
+        .vunit{font-size:10px;color:var(--txt2);margin-top:2px;}
+        .vlbl {font-size:10px;color:var(--txt2);margin-top:3px;}
         .vred{color:var(--red);}.vblue{color:var(--blue);}.vgreen{color:var(--green);}
+
+        /* ── EMR Table ── */
+        .emr-section{flex:1;overflow-y:auto;padding:0;}
+        .emr-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+        .emr-tbl th{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);
+            color:var(--txt2);font-size:10px;font-weight:700;text-transform:uppercase;
+            letter-spacing:.4px;position:sticky;top:0;background:var(--card);z-index:1;}
+        .emr-tbl td{padding:8px 10px;border-bottom:1px solid #21262d;vertical-align:middle;}
+        .emr-tbl tr:last-child td{border-bottom:none;}
+        .emr-tbl tr:hover td{background:var(--card2);}
+        .emr-tbl tr.emr-rec td{background:rgba(248,81,73,.04);}
+        .emr-tbl tr.emr-done td{background:rgba(63,185,80,.03);}
+        .emr-pid{font-family:monospace;font-size:11px;color:var(--blue);}
+        .emr-tbl tr.emr-done .emr-pid{color:var(--green);}
+        .emr-tbl tr.emr-none .emr-pid{color:var(--yellow);}
+        .emr-st{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;}
+        .es-wait{background:rgba(139,148,158,.1);color:var(--txt2);}
+        .es-rec {background:rgba(248,81,73,.15);color:var(--red);animation:blink 1s infinite;}
+        .es-anal{background:rgba(210,153,34,.12);color:var(--yellow);animation:blink 1.5s infinite;}
+        .es-done{background:rgba(63,185,80,.1);color:var(--green);}
+        .es-recheck{background:rgba(210,153,34,.12);color:var(--yellow);}
+        .emr-label{font-weight:700;font-size:11px;}
+        .emr-label.l-normal{color:var(--green);}
+        .emr-label.l-abnormal{color:var(--red);}
+        .emr-label.l-recheck{color:var(--yellow);}
+        .emr-btn{padding:3px 8px;border:1px solid var(--border);border-radius:5px;
+            background:var(--card2);color:var(--txt);font-size:10px;font-weight:600;
+            cursor:pointer;white-space:nowrap;transition:background .15s;}
+        .emr-btn:hover{background:var(--card);}
+        .emr-btn.primary{background:rgba(88,166,255,.15);border-color:rgba(88,166,255,.3);color:var(--blue);}
+        .emr-none-row{background:rgba(210,153,34,.04)!important;}
+
+        /* Reassign dropdown */
+        .reassign-wrap{position:relative;display:inline-block;}
+        .reassign-dd{position:absolute;bottom:100%;left:0;background:var(--card);
+            border:1px solid var(--border);border-radius:8px;padding:6px;min-width:180px;
+            box-shadow:0 8px 24px rgba(0,0,0,.6);z-index:10;display:none;}
+        .reassign-dd.open{display:block;}
+        .reassign-opt{padding:6px 10px;border-radius:5px;cursor:pointer;font-size:11px;
+            display:flex;align-items:center;gap:6px;transition:background .1s;}
+        .reassign-opt:hover{background:var(--card2);}
+        .reassign-opt .r-id{font-family:monospace;color:var(--blue);min-width:36px;}
+        .reassign-opt .r-name{flex:1;}
+        .reassign-opt .r-ward{color:var(--txt2);font-size:10px;}
 
         /* ── RIGHT: AI + Patients ── */
         .right-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
@@ -200,37 +243,55 @@
                         <button class="dev-hw-btn" id="btnR">▶</button>
                     </div>
                 </div>
-                <div class="dev-hint">Short: tap &nbsp;|&nbsp; Long: hold 1s</div>
+                <div class="dev-hint">Hardware Mirror</div>
             </div>
         </div>
     </div>
 
-    <!-- ── CENTER: Waveform ── -->
+    <!-- ── CENTER: Waveform + EMR ── -->
     <div class="col">
         <div class="sec-hdr">📈 실시간 파형</div>
-        <div class="wave-section">
-            <div class="rec-banner" id="recBanner">
-                <div class="rec-dot"></div>
-                <div class="rec-info">
-                    <div class="rec-pat" id="recPatLbl">—</div>
-                    <div class="rec-type" id="recTypeLbl">—</div>
+        <div class="center-body">
+            <div class="wave-section">
+                <div class="rec-banner" id="recBanner">
+                    <div class="rec-dot"></div>
+                    <div class="rec-info">
+                        <div class="rec-pat" id="recPatLbl">—</div>
+                        <div class="rec-type" id="recTypeLbl">—</div>
+                    </div>
+                    <div class="rec-bar-bg"><div class="rec-bar" id="recBar"></div></div>
+                    <div class="rec-time" id="recTime">0.0s</div>
                 </div>
-                <div class="rec-bar-bg"><div class="rec-bar" id="recBar"></div></div>
-                <div class="rec-time" id="recTime">0.0s</div>
+                <div class="idle-banner" id="idleBanner">
+                    <span style="font-size:16px;">💤</span>
+                    대기 중 — 모바일에서 녹음을 시작하면 파형이 표시됩니다
+                </div>
+                <div class="wave-wrap">
+                    <canvas id="waveCanvas"></canvas>
+                    <div class="wave-lbl" id="waveLbl" style="color:#2a3d2a;">IDLE</div>
+                    <div class="wave-meta">8kHz · 16-bit mono</div>
+                </div>
+                <div class="vitals">
+                    <div class="vbox"><div class="vval vred" id="bpmVal">—</div><div class="vunit">BPM</div><div class="vlbl">심박수</div></div>
+                    <div class="vbox"><div class="vval vblue" id="rrVal">—</div><div class="vunit">회/min</div><div class="vlbl">호흡수</div></div>
+                    <div class="vbox"><div class="vval vgreen" id="recCntVal">0</div><div class="vunit">회</div><div class="vlbl">녹음 횟수</div></div>
+                </div>
             </div>
-            <div class="idle-banner" id="idleBanner">
-                <span style="font-size:18px;">💤</span>
-                대기 중 — 모바일에서 녹음을 시작하면 파형이 표시됩니다
+            <div class="sec-hdr">🏥 전자의무기록 (EMR)
+                <span class="badge warn" id="emrBadge" style="font-size:10px;padding:2px 7px;">0건</span>
             </div>
-            <div class="wave-wrap">
-                <canvas id="waveCanvas"></canvas>
-                <div class="wave-lbl" id="waveLbl" style="color:#2a3d2a;">IDLE</div>
-                <div class="wave-meta">8kHz · 16-bit mono</div>
-            </div>
-            <div class="vitals">
-                <div class="vbox"><div class="vval vred" id="bpmVal">—</div><div class="vunit">BPM</div><div class="vlbl">심박수</div></div>
-                <div class="vbox"><div class="vval vblue" id="rrVal">—</div><div class="vunit">회/min</div><div class="vlbl">호흡수</div></div>
-                <div class="vbox"><div class="vval vgreen" id="recCntVal">0</div><div class="vunit">회</div><div class="vlbl">녹음 횟수</div></div>
+            <div class="emr-section">
+                <table class="emr-tbl">
+                    <thead><tr>
+                        <th>ID</th><th>성명</th><th>나이</th><th>병실</th><th>진단명</th>
+                        <th>상태</th><th>청진</th><th>AI 결과</th><th>신뢰도</th><th></th>
+                    </tr></thead>
+                    <tbody id="emrTbody">
+                        <tr><td colspan="10" style="text-align:center;color:var(--txt2);padding:20px;">
+                            EMR 서버 연결 대기 중...
+                        </td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -291,6 +352,7 @@ const MOBILE_TIMEOUT = 10000;
 let mqttClient=null, isRecording=false, curMode='HEART';
 let recStartTime=0, recProgTimer=null, recCount=0;
 let patients=[], curPatient='NONE';
+let allPatients=[]; // 전체 환자 (EMR 테이블용, 서버 CSV 기반)
 let mobileOnline=false, mobileLastSeen=0;
 
 // Main waveform
@@ -346,15 +408,28 @@ setInterval(checkMobile,1000);
 // ─── Patient list (right column) ────────────────────────
 function renderPatients(){
     const list=document.getElementById('patList'),badge=document.getElementById('patCntBadge');
-    if(!patients.length){list.innerHTML='<div style="text-align:center;color:var(--txt2);font-size:12px;padding:20px;">환자 없음</div>';badge.textContent='0명';badge.className='badge warn';return;}
-    badge.textContent=patients.length+'명';badge.className='badge ok';
+    // Filter: only show waiting patients (not done/recheck from local tracking or server CSV)
+    const waiting=patients.filter(p=>{
+        const local=emrState.get(p.patient_id);
+        if(local&&(local.status==='done'))return false;
+        // Also check allPatients CSV status
+        const csv=allPatients.find(a=>a.patient_id===p.patient_id);
+        if(csv&&csv.status==='청진완료')return false;
+        return true;
+    });
+    if(!waiting.length){list.innerHTML='<div style="text-align:center;color:var(--txt2);font-size:12px;padding:20px;">대기 환자 없음</div>';badge.textContent='0명';badge.className='badge warn';return;}
+    badge.textContent=waiting.length+'명';badge.className='badge ok';
     list.innerHTML='';
-    patients.forEach(p=>{
+    waiting.forEach(p=>{
         const isRec=isRecording&&curPatient===p.patient_id;
+        const local=emrState.get(p.patient_id);
+        const isAnal=local&&local.status==='anal';
         const d=document.createElement('div');d.className='pat-card'+(isRec?' recording':'');
+        const statusTxt=isRec?'● 녹음중':isAnal?'분석중':'대기';
+        const statusCls=isRec?'ps-rec':isAnal?'ps-rec':'ps-wait';
         d.innerHTML=`<div class="pat-av">${p.name.charAt(0)}</div>
             <div><div class="pat-name">${p.name}</div><div class="pat-meta">${p.patient_id} · ${p.ward}</div></div>
-            <div class="pat-st ${isRec?'ps-rec':'ps-wait'}">${isRec?'● 녹음중':'대기'}</div>`;
+            <div class="pat-st ${statusCls}">${statusTxt}</div>`;
         list.appendChild(d);
     });
 }
@@ -377,6 +452,11 @@ function startRecording(patient,scanType,patName){
         document.getElementById('recTime').textContent=(e/1000).toFixed(1)+'s';
         if(e>REC_DUR+1000)clearInterval(recProgTimer);
     },50);
+    // EMR: recording status
+    if(patient&&patient!=='NONE'){
+        emrState.set(patient,{status:'rec',scanType,time:emrTimeStr()});
+        renderEmr();
+    }
     renderPatients();
 }
 function stopRecording(){
@@ -448,6 +528,18 @@ function handleAiResult(raw){
         devAiLabel=isUnknown?'RECHECK':r.label;devAiConf=Math.round(conf);
         devLastLabel=devAiLabel;devLastConf=devAiConf;
         devState='ai_result';clearTimeout(devFakeTimer);
+
+        // Update EMR table
+        if(r.patient_id&&r.patient_id!=='NONE'){
+            emrState.set(r.patient_id,{
+                status:isUnknown?'recheck':'done',
+                scanType:r.scan_type,
+                label:isUnknown?'RECHECK':r.label,
+                conf:Math.round(conf),
+                time:new Date().toLocaleTimeString('ko-KR',{hour12:false,hour:'2-digit',minute:'2-digit'})
+            });
+            renderEmr();
+        }
     }catch(e){console.error(e);}
 }
 function addBar(container,label,prob,color){
@@ -479,7 +571,6 @@ let devLastLabel='', devLastConf=0;
 let devDotStep=0, devWaveT=0;
 let devBeatOn=false, devBreathOn=false;
 let devFakeTimer=null;
-let devBtnLDown=0, devBtnRDown=0;
 
 // ── Draw helpers ─────────────────────────────────────────
 function dFill(x,y,w,h,c){dc.fillStyle=c;dc.fillRect(x,y,w,h);}
@@ -664,70 +755,180 @@ setInterval(()=>{
 },750);
 setInterval(()=>{if(devIsWait)devDotStep=(devDotStep+1)%3;},500);
 
-// ── Virtual button logic ─────────────────────────────────
-function devLShort(){
-    if(devIsRec)return;
-    if(devState==='ai_result'){devState='active';return;}
-    if(devState==='popup'){devState='active';return;}
-    if(devIsWait)return;
-    if(devState==='active'){
-        if(devMode==='heart')devMode='lung';
-        else if(devMode==='lung')devMode='patient';
-        else devMode='heart';
-    }
-}
-function devLLong(){
-    const prev=devState;devState='sleep';
-    setTimeout(()=>{if(devState==='sleep')devState=prev;},1500);
-}
-function devRShort(){
-    if(devIsRec)return;
-    if(devIsWait)return;
-    if(devState==='ai_result'){devLastLabel=devAiLabel;devLastConf=devAiConf;devState='active';return;}
-    if(devState==='popup'){devState='pairing';devBleOn=true;return;}
-    if(devState==='pairing'){devState='active';devBleOn=false;return;}
-    if(devState==='active'){
-        if(devMode==='patient'){if(devPatients.length>0)devPatIdx=(devPatIdx+1)%devPatients.length;}
-        else devStartFake();
-    }
-}
-function devRLong(){
-    if(devState==='active'&&devMode==='patient'&&devPatients.length>0){
-        devSelPat=devPatients[devPatIdx].patient_id;
-        devState='selected';
-        setTimeout(()=>{devMode='heart';devState='active';},1000);
-    }
+
+// ════════════════════════════════════════════════════════
+//  EMR TABLE + WAV REASSIGNMENT
+// ════════════════════════════════════════════════════════
+// EMR state per patient: {status:'wait'|'rec'|'anal'|'done'|'recheck', scanType:'', label:'', conf:0, time:''}
+const emrState = new Map(); // patient_id → state
+// WAV store for reassignment (captured from MQTT)
+const wavStore = new Map(); // recId → {buffer, patient, scanType, time, sizeKb}
+let wavRecId = 0;
+const WAV_STORE_MAX = 10;
+let openDropdown = null; // currently open reassign dropdown
+
+function emrTimeStr(){return new Date().toLocaleTimeString('ko-KR',{hour12:false,hour:'2-digit',minute:'2-digit'});}
+
+function renderEmr(){
+    const tbody=document.getElementById('emrTbody');
+    tbody.innerHTML='';
+    let doneCount=0;
+
+    // Use allPatients (from server CSV) if available, fallback to patients
+    const emrList=allPatients.length?allPatients:patients.map(p=>({patient_id:p.patient_id,name:p.name,age:'',gender:'',ward:p.ward,diagnosis:'',status:'대기중',ai_result:''}));
+
+    emrList.forEach(p=>{
+        // Merge server CSV status with real-time local tracking
+        const local=emrState.get(p.patient_id);
+        const csvDone=p.status==='청진완료';
+        const isDone=csvDone||(local&&(local.status==='done'||local.status==='recheck'));
+        if(isDone)doneCount++;
+
+        // Determine display status (local real-time takes priority over CSV)
+        let displayStatus=local?local.status:(csvDone?'done':'wait');
+
+        const tr=document.createElement('tr');
+        if(displayStatus==='rec')tr.className='emr-rec';
+        else if(displayStatus==='done'||csvDone)tr.className='emr-done';
+
+        const stBadge=({
+            wait:'<span class="emr-st es-wait">대기중</span>',
+            rec:'<span class="emr-st es-rec">녹음중</span>',
+            anal:'<span class="emr-st es-anal">분석중</span>',
+            done:'<span class="emr-st es-done">청진완료</span>',
+            recheck:'<span class="emr-st es-recheck">재청진</span>'
+        })[displayStatus]||'<span class="emr-st es-wait">대기중</span>';
+
+        const scanType=local?.scanType||'';
+        const scanIcon=scanType==='HEART'?'<span style="color:var(--red);">&#9829;</span>':
+                       scanType==='LUNG'?'<span style="color:var(--blue);">~</span>':'—';
+        const scanTxt=scanType||'—';
+
+        // AI result: local real-time or CSV ai_result
+        let labelHtml='<span style="color:var(--txt2);">—</span>';
+        let confHtml='<span style="color:var(--txt2);">—</span>';
+        if(local?.label){
+            const lc=local.label==='Normal'?'l-normal':local.label==='RECHECK'?'l-recheck':'l-abnormal';
+            labelHtml=`<span class="emr-label ${lc}">${local.label==='RECHECK'?'재청진필요':local.label}</span>`;
+            confHtml=local.conf>0?`<span style="font-family:monospace;font-weight:700;">${local.conf}%</span>`:'—';
+        }else if(p.ai_result){
+            labelHtml=`<span class="emr-label l-normal">${p.ai_result}</span>`;
+        }
+
+        const timeHtml=local?.time?`<span style="font-size:10px;color:var(--txt2);">${local.time}</span>`:'';
+
+        // Diagnosis from CSV
+        const diagHtml=p.diagnosis?`<span style="font-size:11px;">${p.diagnosis}</span>`:'<span style="color:var(--txt2);">—</span>';
+
+        // Age + gender
+        const ageGender=p.age?`${p.age}${p.gender==='M'?'M':'F'}`:'—';
+
+        tr.innerHTML=`
+            <td class="emr-pid">${p.patient_id}</td>
+            <td style="font-weight:600;">${p.name}</td>
+            <td style="font-size:11px;color:var(--txt2);">${ageGender}</td>
+            <td>${p.ward}</td>
+            <td style="max-width:120px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${p.diagnosis||''}">${diagHtml}</td>
+            <td>${stBadge}</td>
+            <td>${scanIcon} ${scanTxt} ${timeHtml}</td>
+            <td>${labelHtml}</td>
+            <td>${confHtml}</td>
+            <td></td>`;
+        tbody.appendChild(tr);
+    });
+
+    // Render unassigned (NONE) recordings
+    wavStore.forEach((rec,id)=>{
+        if(rec.patient!=='NONE'||rec.reassigned)return;
+        const tr=document.createElement('tr');
+        tr.className='emr-none-row';
+        const scanIcon=rec.scanType==='HEART'?'<span style="color:var(--red);">&#9829;</span>':'<span style="color:var(--blue);">~</span>';
+        tr.innerHTML=`
+            <td class="emr-pid" style="color:var(--yellow);">NONE</td>
+            <td style="color:var(--yellow);">미지정</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td><span class="emr-st es-recheck">미지정</span></td>
+            <td>${scanIcon} ${rec.scanType} <span style="font-size:10px;color:var(--txt2);">${rec.time}</span></td>
+            <td><span style="color:var(--txt2);">${(rec.sizeKb).toFixed(1)} KB</span></td>
+            <td>—</td>
+            <td>
+                <div class="reassign-wrap" id="rw_${id}">
+                    <button class="emr-btn primary" onclick="toggleReassign('${id}')">재지정</button>
+                    <div class="reassign-dd" id="dd_${id}"></div>
+                </div>
+            </td>`;
+        tbody.appendChild(tr);
+    });
+
+    const badge=document.getElementById('emrBadge');
+    badge.textContent=`${emrList.length}명 / ${doneCount}건 완료`;
+    badge.className='badge '+(doneCount>0?'ok':'warn');
 }
 
-function devStartFake(){
-    if(devIsRec||devIsWait)return;
-    devIsRec=true;clearTimeout(devFakeTimer);
-    devFakeTimer=setTimeout(()=>{
-        devIsRec=false;devIsWait=true;devDotStep=0;
-        devFakeTimer=setTimeout(()=>{
-            devIsWait=false;
-            devAiType=devMode.toUpperCase();
-            devAiLabel='Normal';devAiConf=82+Math.floor(Math.random()*14);
-            devState='ai_result';
-        },3000);
-    },5000);
+function toggleReassign(recId){
+    const dd=document.getElementById('dd_'+recId);
+    if(!dd)return;
+    // Close any other open dropdown
+    if(openDropdown&&openDropdown!==dd){openDropdown.classList.remove('open');}
+    const isOpen=dd.classList.contains('open');
+    if(isOpen){dd.classList.remove('open');openDropdown=null;return;}
+
+    // Build patient options
+    dd.innerHTML='';
+    if(!patients.length){dd.innerHTML='<div style="padding:8px;font-size:11px;color:var(--txt2);">환자 없음</div>';dd.classList.add('open');openDropdown=dd;return;}
+    patients.forEach(p=>{
+        const opt=document.createElement('div');opt.className='reassign-opt';
+        opt.innerHTML=`<span class="r-id">${p.patient_id}</span><span class="r-name">${p.name}</span><span class="r-ward">${p.ward}</span>`;
+        opt.onclick=()=>doReassign(recId,p.patient_id);
+        dd.appendChild(opt);
+    });
+    dd.classList.add('open');openDropdown=dd;
 }
 
-// Button event binding
-(()=>{
-    const BL=document.getElementById('btnL'),BR=document.getElementById('btnR');
-    BL.addEventListener('mousedown',()=>devBtnLDown=Date.now());
-    BL.addEventListener('mouseleave',()=>devBtnLDown=0);
-    BL.addEventListener('mouseup',()=>{if(!devBtnLDown)return;const h=Date.now()-devBtnLDown;devBtnLDown=0;h>=800?devLLong():devLShort();});
-    BR.addEventListener('mousedown',()=>devBtnRDown=Date.now());
-    BR.addEventListener('mouseleave',()=>devBtnRDown=0);
-    BR.addEventListener('mouseup',()=>{if(!devBtnRDown)return;const h=Date.now()-devBtnRDown;devBtnRDown=0;h>=800?devRLong():devRShort();});
-    // Touch support
-    BL.addEventListener('touchstart',e=>{e.preventDefault();devBtnLDown=Date.now();},{passive:false});
-    BL.addEventListener('touchend',e=>{e.preventDefault();if(!devBtnLDown)return;const h=Date.now()-devBtnLDown;devBtnLDown=0;h>=800?devLLong():devLShort();},{passive:false});
-    BR.addEventListener('touchstart',e=>{e.preventDefault();devBtnRDown=Date.now();},{passive:false});
-    BR.addEventListener('touchend',e=>{e.preventDefault();if(!devBtnRDown)return;const h=Date.now()-devBtnRDown;devBtnRDown=0;h>=800?devRLong():devRShort();},{passive:false});
-})();
+function doReassign(recId,newPat){
+    const rec=wavStore.get(recId);
+    if(!rec||!mqttClient?.connected)return;
+    const topic=`stethoscope/wav/${newPat}/${rec.scanType}`;
+    mqttClient.publish(topic,new Uint8Array(rec.buffer));
+    rec.reassigned=true;rec.patient=newPat;
+    wavStore.set(recId,rec);
+
+    // Update EMR state for the new patient
+    emrState.set(newPat,{status:'anal',scanType:rec.scanType,time:emrTimeStr()});
+    renderEmr();
+
+    // Close dropdown
+    if(openDropdown){openDropdown.classList.remove('open');openDropdown=null;}
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click',e=>{
+    if(openDropdown&&!e.target.closest('.reassign-wrap')){
+        openDropdown.classList.remove('open');openDropdown=null;
+    }
+});
+
+function handleWavCapture(topic,msg){
+    // Capture WAV published by mobile for reassignment
+    const parts=topic.split('/');
+    const pat=parts[2],scanType=parts[3];
+    const wavBytes=new Uint8Array(msg);
+    if(wavBytes.length<44)return;
+
+    const id='wrec_'+(++wavRecId);
+    wavStore.set(id,{buffer:wavBytes.buffer.slice(wavBytes.byteOffset,wavBytes.byteOffset+wavBytes.byteLength),
+        patient:pat,scanType,time:emrTimeStr(),sizeKb:wavBytes.length/1024,reassigned:false});
+    // Cleanup old
+    if(wavStore.size>WAV_STORE_MAX){const oldest=wavStore.keys().next().value;wavStore.delete(oldest);}
+
+    // Update EMR: this patient is now "분석중"
+    if(pat!=='NONE'){
+        emrState.set(pat,{status:'anal',scanType,time:emrTimeStr()});
+    }
+    renderEmr();
+}
 
 // ════════════════════════════════════════════════════════
 //  MQTT
@@ -789,7 +990,13 @@ function handleMobileHB(raw){
 function handlePatients(raw){
     try{
         patients=JSON.parse(raw)||[];devPatients=patients;
-        devPatIdx=0;renderPatients();
+        devPatIdx=0;renderPatients();renderEmr();
+    }catch(e){}
+}
+function handleAllPatients(raw){
+    try{
+        allPatients=JSON.parse(raw)||[];
+        renderEmr();renderPatients();
     }catch(e){}
 }
 
@@ -803,8 +1010,11 @@ function connectMQTT(){
         mqttClient.subscribe('stethoscope/ui_event');
         mqttClient.subscribe('stethoscope/wave_chunk');
         mqttClient.subscribe('stethoscope/mobile_hb');
+        mqttClient.subscribe('stethoscope/wav/#');
+        mqttClient.subscribe('stethoscope/res_all_patients');
         mqttClient.subscribe('stethoscope/res_patients',()=>{
             mqttClient.publish('stethoscope/req_patients','give_me_list');
+            mqttClient.publish('stethoscope/req_all_patients','give_me_all');
         });
     });
     mqttClient.on('message',(topic,msg)=>{
@@ -813,6 +1023,8 @@ function connectMQTT(){
         else if(topic==='stethoscope/wave_chunk')handleWaveChunk(msg);
         else if(topic==='stethoscope/mobile_hb')handleMobileHB(msg.toString());
         else if(topic==='stethoscope/res_patients')handlePatients(msg.toString());
+        else if(topic==='stethoscope/res_all_patients')handleAllPatients(msg.toString());
+        else if(topic.startsWith('stethoscope/wav/'))handleWavCapture(topic,msg);
     });
     mqttClient.on('error',()=>setBadge('mqttBadge','err','MQTT 오류'));
     mqttClient.on('close',()=>setBadge('mqttBadge','err','MQTT 끊김'));
