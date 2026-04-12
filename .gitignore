@@ -1,0 +1,44 @@
+# === IDE / Tool ===
+.claude/
+.idea/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# === Large datasets & binary files ===
+_misc/
+LUNet_Dataset/
+stetho_app/
+*.pth
+*.h5
+*.npy
+*.tflite
+
+# === Training data (keep .py only) ===
+training/**/*.wav
+training/**/*.png
+training/**/*.npy
+training/**/*.csv
+
+# === Unnecessary files ===
+previous_chat.txt
+*.pptx
+heartwav/
+
+# === Legacy paths (pre-refactor) ===
+Heart_binary_classification/
+Lung_classification/
+LSTM_first/
+ShittyDenoise/
+LU-NET/
+BPM_ondevice/
+ondeviceBPM/
+server_models/
+stethoscope-software/
+Stetho_Web/
+denoise_demo/
+sample_sound/
+
+# === OS ===
+Thumbs.db
+.DS_Store

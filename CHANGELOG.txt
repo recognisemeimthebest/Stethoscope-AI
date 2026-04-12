@@ -1,0 +1,1788 @@
+================================================================
+  STETHO_AI PROJECT CHANGELOG
+  파일 변경/생성/삭제 이력
+================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 14:00] 웹 환자 목록 한글 이름 직접 표시 + EMR 10명 확장
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Stetho_Web/2026-03-26.html
+      server.py
+유형: 수정
+내용:
+  - 웹 UI 환자 목록에서 영문 변환(Kim, Lee 등) 대신 한글 이름(김철수, 이영희) 직접 표시
+  - BLE 전송용 문자열은 영문 약자 유지 (펌웨어 TFT 한글 미지원)
+  - nameMap에 한/윤/임/강/오 추가 (신규 환자 대응)
+  - rawName 괄호 표시 제거 (테이블, 환자 선택 피커)
+  - server.py init_emr() 환자 3명 → 10명 확장 (P001~P010)
+  - diagnosis 필드 추가 (고혈압 심부전, 기관지염, COPD 등)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 00:00] 노이즈 제거 모델 발표자료 참고문서 작성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: ShittyDenoise/노이즈제거_발표자료_참고문서.md
+유형: 생성
+내용:
+  - 노이즈 제거 모델 개발 과정 발표용 참고문서 작성
+  - 기존 논문(Ali 2023 LU-Net) 대비 차이점 정리
+  - 4단계 개발 진화 과정 상세 기술 (CRNN → LU-Net v1 → v2 → TU-Net v2)
+  - 전처리 파이프라인 및 선택 이유 정리
+  - Ablation 결과 및 성능 비교표 포함
+  - 타협점/트레이드오프 6가지 항목 분석
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 00:10] 노이즈 제거 발표자료 - 모델 선택 이유 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: ShittyDenoise/노이즈제거_발표자료_참고문서.md
+유형: 수정
+내용:
+  - "왜 U-Net 구조를 선택했는가" 섹션 추가 (Phase 1과 Phase 2 사이)
+  - 후보 모델 비교표 (단순 LSTM, Autoencoder, GAN, U-Net)
+  - U-Net 선택 핵심 이유 4가지 (다중 해상도, Skip Connection, 의료 검증, LU-Net 논문)
+  - Skip Connection에 Bi-LSTM/TCN을 넣은 이유 설명
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 00:20] 전처리 파이프라인 플로우차트 이미지 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: ShittyDenoise/preprocessing_pipeline.png
+      ShittyDenoise/generate_preprocessing_pipeline.py
+유형: 생성
+내용:
+  - 전처리 7단계 플로우차트 (리샘플링→정규화→무음필터→윈도우→노이즈합성→증강→최종)
+  - 다크 테마, 단계별 색상 구분, 화살표 연결
+  - 발표용 고해상도 PNG
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 21:00] 심음 디노이징 연구 결과보고서 작성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: LSTM_first/generate_report.py
+      LSTM_first/Heart_Sound_Denoising_Report.docx
+유형: 생성
+내용:
+  - 이전 Claude 대화(previous_chat.txt) 기반 연구 결과보고서 DOCX 생성
+  - 7개 챕터 구성: 연구개요, 기반논문, Gemini 문제점, 제안모델, 실험결과, 논의, 결론
+  - 6모델 Ablation Study 결과표, SNR별 성능분석, 청음평가 포함
+  - 차트 6장(figures/) 삽입, 비교표 11개 포함
+  - 참고문헌 8편 (Ali 2023, U-Net, SE-Net, Conv-TasNet 등)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 20:30] 차트 설명 txt 파일 3종 작성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: _misc/heart/classification/adult_v1_to_v14/figures/chart_descriptions.txt
+      Heart_binary_classification/figures_v15/chart_descriptions.txt
+      LSTM_first/figures/chart_descriptions.txt
+유형: 생성
+내용:
+  - V1-V14 차트 7종 각각의 상세 설명 (데이터, 구성, 해석)
+  - V15 차트 8종 각각의 상세 설명 (변경점, 아키텍처, 성능 비교)
+  - 디노이징 차트 7종 각각의 상세 설명 (모델 비교, 아키텍처, 개선 기법)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 20:15] 디노이징 개발 여정 차트 7종 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: LSTM_first/generate_denoise_charts.py
+      LSTM_first/figures/01_model_comparison.png
+      LSTM_first/figures/02_spec_vs_waveform.png
+      LSTM_first/figures/03_lunet_architecture.png
+      LSTM_first/figures/04_three_improvements.png
+      LSTM_first/figures/05_dataset_composition.png
+      LSTM_first/figures/06_snr_analysis.png
+      LSTM_first/figures/07_development_journey.png
+유형: 생성
+내용:
+  - 6개 디노이징 모델 성능 비교 (ΔSNR, SI-SNR, Noise Reduction Rate)
+  - Spectrogram vs Waveform 도메인 접근법 비교 다이어그램
+  - LU-Net v2 아키텍처 상세 구조도 (Encoder-Bottleneck-Decoder + SE Block)
+  - v1→v2 3대 핵심 개선사항 (Residual Learning, Channel Attention, SI-SNR Loss)
+  - 학습 데이터셋 구성 (10,000 Noisy/Clean 쌍, SNR 분포)
+  - SNR 레벨별 성능 분석 + BiLSTM vs TCN 비교
+  - 전체 개발 타임라인 및 핵심 교훈 정리
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 19:30] V14 vs V15 실제 모델 성능 비교 평가 및 그래프
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/compare_v14_v15.py
+      Heart_binary_classification/figures_v15/08_v14_vs_v15_performance.png
+      Heart_binary_classification/figures_v15/v14_vs_v15_results.json
+유형: 생성
+내용:
+  - V14(A+B+C) 모델과 V15 모델을 실제 로드하여 validation set에서 평가
+  - V14: MACC 92.39%, Se 91.31%, Sp 93.46%, Acc 93.01%
+  - V15: MACC 95.70%, Se 94.59%, Sp 96.80%, Acc 95.88%
+  - Delta: MACC +3.31%, Se +3.28%, Sp +3.34%, Acc +2.86%
+  - V15 3-class: Unknown 100% 정확 분류 (252/252)
+  - 6-panel 비교 그래프 생성 (바 차트, confusion matrix, delta, 구조 비교)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 19:00] Heart Sound Classification V15 분석 그래프 7종 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/generate_v15_charts.py
+      Heart_binary_classification/figures_v15/ (7개 PNG)
+유형: 생성
+내용:
+  - V14 vs V15 변화점 비교 다이어그램
+  - 3-Class 데이터 구성 + 5그룹 균형 전략 차트
+  - ResNet+CBAM+XGBoost 아키텍처 상세도
+  - 전처리 파이프라인 (Sliding Window + ref=1.0)
+  - Probability-based Segment Voting 추론 흐름도
+  - Unknown 클래스 도입 근거 + ref=np.max 문제 해결 비교
+  - V1~V15 전체 진화 타임라인
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 18:30] Heart Sound Classification V1-V14 개발 여정 문서화
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: _misc/heart/classification/adult_v1_to_v14/generate_journey_charts.py
+      _misc/heart/classification/adult_v1_to_v14/create_journey_ppt.py
+      _misc/heart/classification/adult_v1_to_v14/figures/ (7개 PNG)
+      _misc/heart/classification/adult_v1_to_v14/Heart_Classification_Journey.pptx
+유형: 생성
+내용:
+  - V1~V14 코드 전수 분석 기반 개발 여정 시각화 7종 생성
+    (Score 추이, 해상도 진화, 아키텍처 타임라인, Ablation Study,
+     문제-해결 인포그래픽, 파이프라인 상세, 기술 의사결정)
+  - 10슬라이드 PPT: Phase 1~4 단계별 문제 발견/해결 과정 상세 기록
+  - 노션 메모 + 실제 코드 분석 결합하여 정확한 기술적 내용 반영
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 17:30] 프로젝트 발표용 PPT 자동 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Stetho_AI_Presentation.pptx
+      _misc/create_ppt.py
+유형: 생성
+내용:
+  - python-pptx + matplotlib로 12슬라이드 발표 자료 자동 생성
+  - 다크 테마 (남색 배경), 시안/보라/초록 액센트 컬러
+  - 슬라이드 구성: 표지, 문제정의, 솔루션, 아키텍처, 데이터 파이프라인,
+    AI 모델 개요, 심음 상세(차트), 폐음 상세(차트), 펌웨어 상태머신,
+    코드 통계(차트), 기술적 회고, 향후 계획
+  - matplotlib 차트 4개 포함 (분류 결과, 데이터 구성, Focal Loss, 코드 통계)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 16:15] 온디바이스 BPM 알고리즘 실제 데이터 검증 및 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: ondeviceBPM/bpm_test.py
+      ondeviceBPM/deploy/BPMDetector.h
+유형: 수정
+내용:
+  - Shannon Envelope → RMS Envelope 교체 (프레임별 정규화가 자기상관 손상 발견)
+  - Autocorr global max → 40-130 BPM 로컬 피크 신뢰도 최고 선택으로 교체
+    (global max가 2T 하모닉 40 BPM 잡음 발견)
+  - 검증 결과: 내 심음 데이터 11세그먼트에서 68-87 BPM (정상 범위) 정확 추출
+  - 기존 DSP는 동일 데이터에서 143-177 BPM (S1+S2 2배 오류) 확인
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 15:30] 온디바이스 BPM 감지 모듈 신규 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: ondeviceBPM/prepare_data.py
+      ondeviceBPM/model.py
+      ondeviceBPM/train.py
+      ondeviceBPM/quantize.py
+      ondeviceBPM/bpm_test.py
+      ondeviceBPM/deploy/BPMDetector.h
+유형: 생성
+내용:
+  - Shannon Energy Envelope 기반 노이즈 게이트 모델 (Tiny 1D CNN, ~7KB INT8)
+  - Autocorrelation BPM 추정 (비주기적 잡음에 강인)
+  - PhysioNet 2016 + ESC-50 데이터 전처리 파이프라인
+  - TFLite INT8 양자화 및 C 헤더 변환
+  - ESP32 C++ BPMDetector 클래스 (BPFilter + ShannonAccum + TFLite + Autocorr)
+  - 기존 DSP vs 새 방식 비교 테스트 스크립트
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 10:30] 심음 분류 모델 재학습 — 도메인 갭 해소 및 정규화 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/preprocessing.py
+유형: 수정
+내용:
+  - ICS43434 기기 심음(good 5개→Normal) 및 노이즈(6개→Unknown) 데이터 추가
+  - ref=np.max → ref=1.0 고정값으로 변경 (무음이 Normal로 분류되는 문제 해결)
+  - 클래스별 세그먼트 수 출력 추가
+
+파일: Heart_binary_classification/XGBClassifier_Full.py
+유형: 수정
+내용:
+  - process_new_audio 함수 내 ref=np.max → ref=1.0 변경 (학습-추론 일관성)
+
+파일: server_models/predict_heart.py
+유형: 수정
+내용:
+  - FIXED_REF=1.0 상수 추가, wav_to_mel_segments에서 ref=FIXED_REF 사용
+
+파일: Heart_binary_classification/resnet_cbam_best.pth
+      Heart_binary_classification/heart_xgb_model.json
+유형: 수정 (재학습)
+내용:
+  - 기기 데이터 포함 재학습 완료 (Accuracy 95.88%)
+  - 기존 모델 .bak으로 백업
+
+파일: server_models/Heart_binary_classification/resnet_cbam_best.pth
+      server_models/Heart_binary_classification/heart_xgb_model.json
+유형: 수정 (서버 배포용 복사)
+내용:
+  - 재학습된 모델을 서버 추론 경로에 복사
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 10:45] server.py WAV 피크 정규화 제거
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: server.py
+유형: 수정
+내용:
+  - WAV 저장 시 피크 정규화(max→32700) 제거
+  - DC offset 제거만 유지 (자연 진폭 보존)
+  - 노이즈가 심음과 동일 에너지로 증폭되어 Abnormal 판정되던 문제 해결
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 11:00] server.py 무음 시 디노이즈 건너뛰기 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: server.py
+유형: 수정
+내용:
+  - _check_audio_energy() 함수 추가 (RMS 에너지 기반 무음 판별)
+  - 무음(RMS < 0.005) 시 디노이즈 생략, 원본 WAV로 바로 분류
+  - 디노이저가 무음을 피크 정규화(900배 증폭) 후 가짜 파형을 생성하여
+    Abnormal 판정되던 문제 해결
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26] 샘플레이트 2kHz → 8kHz 통일 (펌웨어 + 웹)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\stethoscope-software\2026-03-25-1442_edited.h
+      G:\stetho_ai\Stetho_Web\2026-03-26.html
+유형: 수정
+내용:
+  - TARGET_RATE 2000 → 8000 (DECIMATION 자동으로 16000/8000=2)
+  - BLE_BUFFER_SIZE 50 → 80 (8kHz에서 BLE 패킷 유실 방지)
+  - DSP_PEAK_REFRACTORY 600 → 2400 (×4, BPM 오검출 방지)
+  - RR_REFRACTORY 3000 → 12000 (×4, 호흡수 오검출 방지)
+  - DSP_ENV_WINDOW 20 → 80 (×4, envelope 윈도우 유지)
+  - DSP_VAR_WINDOW 100 → 400 (×4, variance 윈도우 유지)
+  - 웹 WAV 헤더 sample rate 2000 → 8000, byte rate 갱신
+  - 웹 UI 라벨 "16kHz → 2kHz" → "16kHz → 8kHz"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 13:30] 웹 대시보드 — 가짜 Signal Quality 표시 제거
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+유형: 수정
+내용:
+  - 청진기 기기 카드의 Signal Quality 3단 바 (sigBars) 완전 제거
+  - CSS (.sigbars, .sigbar, .siggood, .sigweak) 제거
+  - setSig() 함수 및 모든 호출부 제거
+  - 이유: 펌웨어는 SIG: 를 BLE로 전송하지 않아 웹의 표시가 항상 가짜였음
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 13:00] 웹 대시보드 — 펌웨어 연동 버그 7건 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+유형: 수정
+내용:
+  - [#1 CRITICAL] REC_FAIL 문자열 불일치: === → startsWith (펌웨어 "REC_FAIL:DISCONNECTED" 대응)
+  - [#2 MAJOR] WAV 샘플레이트: 8000 → 2000 Hz (펌웨어 TARGET_RATE=2000과 일치)
+  - [#3 MAJOR] BLE 끊김 시 불완전 오디오 폐기: clearTimeout + webAudioChunks 초기화
+  - [#4 MODERATE] wavStore 메모리 누수: 최대 20건 보관, 초과 시 오래된 것부터 삭제
+  - [#5 MODERATE] 로그 XSS 취약점: innerHTML → textContent (BLE 명령 HTML 인젝션 방지)
+  - [#6 MINOR] SIG: 펌웨어 미구현 주석 + 녹음 시작/완료 기반 시그널 자체 추정
+  - [#7 MINOR] NONE 환자 경고: 녹음 시작/업로드 시 빨간색 경고 로그 출력
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 12:00] 웹 대시보드 — idle 파형 고정·서버 카드 제거·환자 재지정 기능 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+유형: 수정
+내용:
+  - Idle 파형: 시뮬레이션 제거 → 깔끔한 플랫 베이스라인 + 우측 깜빡이는 점만 표시
+  - 라즈베리파이 서버 카드 제거 (IP 노출 방지)
+  - 레이아웃 ④ 시스템 로그 전체 너비로 변경
+  - 업로드 기록: 각 항목에 "환자 재지정" 버튼 추가
+  - 재지정 모달: 기존 녹음 정보 + 환자 선택 → MQTT 재업로드
+  - WAV 버퍼 메모리 보관(Map<recId, {buffer, type, pat, ...}>)으로 재전송 가능
+  - 재지정 후 업로드 기록 topic 라벨 노란색으로 변경 표시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 11:00] 웹 대시보드 레이아웃 재구성 + 파형 개선
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+유형: 수정
+내용:
+  - 섹션 순서 재배치: 환자목록 → 실시간측정값 → 업로드기록+기기정보 → 서버+로그
+  - 파형 시뮬레이션: 가우시안 envelope 기반 S1-S2 phonocardiogram (lub-dub) 구현
+  - 파형 렌더링: glow pass(넓고 흐린) + main line(밝음) 이중 레이어로 심전도 느낌
+  - 폐음 모드: inspiration/expiration/pause 3구간 호흡 파형 시뮬레이션
+  - 실제 BLE 오디오 수신 시 실제 샘플로 자동 전환
+  - 캔버스 격자(시간 눈금) 추가
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 10:00] 웹 대시보드 UI 신규 제작
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+유형: 생성
+내용:
+  - 기존 파이프라인 테스트용 브릿지(2026-03-25-1442.html)를 대체하는 대시보드 UI 제작
+  - 상단 헤더: BLE·MQTT 연결 상태 배지 실시간 표시
+  - 청진기 기기 정보 카드: 기기명, 모드, 선택 환자, 마지막 명령, 연결 시각
+  - 라즈베리파이 서버 정보 카드: IP, 포트, 연결 상태, 환자 수, 업로드 횟수
+  - 실시간 파형(Canvas) 렌더링 — 녹음 중 오디오 샘플 시각화
+  - 녹음 진행 배너: 진행 바 + 경과 시간 표시
+  - 환자 목록 테이블: 선택된 환자 하이라이트, ER 병실 강조
+  - 업로드 기록 패널: 환자/부위/시각/파일크기 표시
+  - 시스템 로그: 레벨별 색상 구분(ok/warn/err/info)
+  - REC_DONE / REC_FAIL 펌웨어 알림 처리
+  - 2026-03-25-1442_edited.h 펌웨어와 BLE UUID 완전 호환
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 11:00] 노이즈 제거 결과 시각화 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: ShittyDenoise/LU-NET/visualize_denoise_results.py
+유형: 생성
+내용:
+  - LU-Net v1/v2, TU-Net v1/v2 4개 모델 비교 시각화 스크립트 작성
+  - Figure 01: 파형 비교 (원본 vs 노이즈제거, 전체+확대)
+  - Figure 02: Mel-Spectrogram 비교 (공통 스케일)
+  - Figure 03: 잔류 노이즈 분석 (원본 - 노이즈제거)
+  - Figure 04: 성능 지표 바 차트 (delta-SNR, SI-SNR, 복원율)
+  - Figure 05: Ablation 분석 (v1 vs v2)
+  - Figure 06: LU-Net v2 최적 모델 종합 인포그래픽
+
+파일: ShittyDenoise/LU-NET/figures/01~06_*.png (6개)
+유형: 생성
+내용:
+  - 위 스크립트 실행 결과 PNG 6장 생성
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 11:30] 노이즈 제거 아키텍처 설명 시각화 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: ShittyDenoise/LU-NET/visualize_architecture.py
+유형: 생성
+내용:
+  - Figure 07: 5단계 U-Net 파이프라인 다이어그램
+  - Figure 08: LSTM vs TCN 구조 비교 및 전환 근거
+  - Figure 09: Direct vs Residual Learning 비교
+  - Figure 10: 3대 개선 기법 효과 요약 (Attention, Residual, SI-SNR Loss)
+  - Unicode 글리프 이슈 수정 (ŝ→s', n̂→n', −→-, ━→-, ≈→~)
+
+파일: ShittyDenoise/LU-NET/figures/07~10_*.png (4개)
+유형: 생성
+내용:
+  - 위 스크립트 실행 결과 PNG 4장 생성
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 12:00] 심음 분류 시각화 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/visualize_classification.py
+유형: 생성
+내용:
+  - Figure 01: 6단계 분류 파이프라인 다이어그램
+  - Figure 02: ResNet+CBAM 아키텍처 상세 (CBAM 내부 구조 포함)
+  - Figure 03: 데이터 구성 (성인/소아 비율, 실제 스펙트로그램, 슬라이딩 윈도우)
+  - Figure 04: 정상 vs 비정상 비교 (초기 버전, 전처리된 데이터 사용)
+  - Figure 05: 설계 의사결정 근거 (왜 CBAM, 왜 XGBoost 등)
+
+파일: Heart_binary_classification/figures/01~05_*.png (5개)
+유형: 생성
+내용:
+  - 위 스크립트 실행 결과 PNG 5장 생성
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 12:30] 심음 Figure 4 원본 wav 기반으로 교체
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/visualize_raw_comparison.py
+유형: 생성
+내용:
+  - 전처리된 데이터(SR=4000Hz)의 스펙트로그램이 상단 mel bin에서
+    부자연스러운 검은 대역 발생 → 원본 wav 파일 직접 사용으로 변경
+  - Figure 04 교체: 성인(SR=2000Hz) + 소아(SR=4000Hz) 원본 wav에서
+    파형/Mel-Spectrogram/FFT 3열 구성
+  - Figure 04b 추가: 같은 환자(ID:49748) AV/MV/PV/TV 4개 청진위치 비교
+
+파일: Heart_binary_classification/figures/04_normal_vs_abnormal.png
+유형: 수정 (덮어쓰기)
+내용:
+  - 원본 wav 기반 스펙트로그램으로 교체, 자연스러운 주파수 대역 표현
+
+파일: Heart_binary_classification/figures/04b_multisite_comparison.png
+유형: 생성
+내용:
+  - 소아 비정상 환자 4개 청진위치 비교 이미지
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 12:40] 임시 파일 삭제
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/_check_sr.py
+유형: 삭제
+내용:
+  - SR 확인용 임시 스크립트 삭제 (더 이상 필요 없음)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 13:27] 폐음 분류 시각화 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Lung_classification/visualize_lung_classification.py
+유형: 생성
+내용:
+  - Figure 01: 6단계 분류 파이프라인 (데이터수집→클래스병합→증강→스펙트로그램→MobileNetV2→분류)
+  - Figure 02: 모델 진화 히스토리 (Phase1 ResNet18 scratch → Phase2 데이터확장
+    → Phase3 pretrained+SpecAugment → Final v1 MobileNetV2 128x128
+    → Final v2 MobileNetV2 224x224+FocalLoss)
+  - Figure 03: 데이터 구성 (ICBHI+SPRSound 소스, 7→5 클래스 병합, 증강전략,
+    실제 정상/비정상 스펙트로그램, Mel-Spectrogram 파라미터)
+  - Figure 04: 정상 vs 비정상 폐음 6종 비교
+    (ICBHI Healthy/COPD/Pneumonia + SPRSound Normal/Crackle/Wheeze)
+    원본 wav에서 파형/Mel-Spectrogram/FFT 3열 구성
+  - Figure 05: 아키텍처 비교 (ResNet18 11.2M params vs MobileNetV2 2.2M params)
+  - Figure 06: 핵심 개선 요약 6칸 (해상도 128→224, Focal Loss 곡선,
+    데이터 통합 타임라인, Transfer Learning 효과, 증강 변천, 최종 비교표)
+
+파일: Lung_classification/figures/01~06_*.png (6개)
+유형: 생성
+내용:
+  - 위 스크립트 실행 결과 PNG 6장 생성
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 13:50] ESP32 펌웨어 JSF++ 준수 리팩토링
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-03-25-1442_edited.h
+유형: 생성
+내용:
+  - 원본 2026-03-25-1442.h를 JSF++ (Joint Strike Fighter C++ Coding Standards)
+    기준으로 리팩토링한 버전
+  - [버그 수정] setMinPreferred 두 번 호출 → setMaxPreferred로 수정
+  - [AV Rule 20/31] #define 상수 → static constexpr 변환 (60개+)
+  - [AV Rule 15] NULL → nullptr
+  - [AV Rule 27] 매직 넘버에 이름 부여 (LONG_PRESS_THRESHOLD_MS, TFT_CMD_SLEEP_IN 등)
+  - [AV Rule 33] 모든 if/else에 중괄호 추가
+  - [AV Rule 67] Button 클래스 데이터 멤버 private화 + m_ prefix
+  - [AV Rule 142] 미사용 파라미터 (void) 명시
+  - [AV Rule 167] sprintf → snprintf
+  - [AV Rule 185] C-style cast → static_cast
+  - enum MeasureMode (MODE_HEART/MODE_LUNG/MODE_PATIENT) 추가
+  - enum ButtonEvent (BTN_NONE/BTN_SHORT/BTN_LONG) 추가
+  - tftSleep()/tftWake(), startRecording()/stopRecording() 헬퍼 함수 분리
+  - drawPatientListUI() 분리하여 drawUI() 복잡도 감소
+  - BLE 콜백에 override 키워드 추가
+  - 헤더 가드 (#ifndef/#endif) 추가
+  - i2s_driver_install/i2s_set_pin 반환값 확인 추가
+  - 한 줄 한 문장으로 정리 (디버깅 용이)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 14:00] 변경 로그 시스템 도입
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: CLAUDE.md
+유형: 수정
+내용:
+  - "Change Log Rules" 섹션 추가
+  - 파일 변경 시 CHANGELOG.txt에 append하는 규칙 명시
+  - 기록 형식 템플릿 정의
+
+파일: CHANGELOG.txt
+유형: 생성
+내용:
+  - 프로젝트 변경 이력 로그 파일 생성
+  - 이전 세션에서 로그를 남기지 않은 모든 변경사항 소급 기록
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 15:00] ESP32 펌웨어 NVS 영구 저장 기능 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-03-25-1442_edited.h
+유형: 수정
+내용:
+  - <Preferences.h> 포함 추가
+  - NVS namespace "stetho" 및 키 상수 정의 (NVS_KEY_MODE, NVS_KEY_PATIENT, NVS_KEY_BLE_ON)
+  - Preferences nvs 전역 객체 추가
+  - nvsLoad(): setup()에서 호출, 저장된 모드/환자/BLE 상태 복원
+  - nvsSaveMode(): 모드 변경(좌버튼 short press) 및 환자 선택 시 호출
+  - nvsSavePatient(): 환자 선택(우버튼 long press) 시 호출
+  - nvsSaveBle(): BLE 페어링 시작/취소/연결 해제 시 호출
+  - setup()에서 저장된 BLE 상태가 on이면 자동으로 advertising 재개
+  - 재부팅/deep sleep 복귀 후에도 마지막 설정 유지
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 15:30] ESP32 폐음 호흡수(RR) 검출 기능 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-03-25-1442_edited.h
+유형: 수정
+내용:
+  - RR DSP 상수 블록 추가 (RR_RMS_WINDOW=400, RR_SMOOTH_WINDOW=1000,
+    RR_REFRACTORY=3000, RR_TIMEOUT_MS=10000 등)
+  - rr_reset(): 모드 전환/연결 시 RR 상태 초기화
+  - rr_process(): 4단계 호흡수 검출 알고리즘
+    Step 1: 단기 RMS 에너지 (200ms 윈도우)
+    Step 2: 이동평균 스무딩 (500ms 윈도우)
+    Step 3: 적응형 threshold (running_max * 0.30)
+    Step 4: 상승 에지 감지 (조용→호흡 시작) + 히스테리시스 (60%)
+  - audioTask에서 lung 모드일 때 rr_process() 호출
+  - drawRR(): BPM_Y 위치에 호흡수 표시 (폐 아이콘 + "br/m" 단위)
+  - drawBreathIndicator(): 호흡 감지 시 CYAN 원 깜빡임
+  - clearRR() forward declaration 추가
+  - 연결 시 rr_reset() 호출 추가
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 15:45] ESP32 신호 품질 표시 기능 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-03-25-1442_edited.h
+유형: 수정
+내용:
+  - dsp_signal_ok 전역 변수 추가 (심음 DSP에서 signal_ok 노출)
+  - rr_signal_ok 전역 변수 추가 (폐음 envelope > noise floor)
+  - enum SignalLevel (SIG_NONE, SIG_WEAK, SIG_GOOD) 3단계 정의
+  - getSignalLevel(): 모드별 신호 품질 판정
+    Heart: signal_ok=false→NONE, BPM 미검출→WEAK, BPM 검출→GOOD
+    Lung: signal_ok=false→NONE, RR 미검출→WEAK, RR 검출→GOOD
+  - drawSignalQuality(): 3단 바 인디케이터 (모드별 색상: 빨강/시안)
+    화면 우측, 파형 영역 위에 표시, 300ms 간격 갱신
+  - loop()에서 drawSignalQuality() 호출 추가
+  - drawUI() 모드 전환 시 신호 레벨 초기화
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 16:00] ESP32 BLE 녹음 끊김 처리 + Watchdog Timer 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-03-25-1442_edited.h
+유형: 수정
+내용:
+  [BLE 녹음 끊김 처리]
+  - recFailed, recFailDisplayTime 상태 변수 추가
+  - REC_FAIL_DISPLAY_MS = 1500ms (실패 화면 표시 시간)
+  - stopRecordingWithFail(): BLE 끊김 시 호출
+    "REC_FAIL:DISCONNECTED" 메시지를 웹 브릿지에 전송
+    화면에 "REC FAILED / BLE Disconnected" 빨간 경고 표시
+    1.5초 후 자동으로 정상 UI 복귀
+  - stopRecording(): 성공 시 "REC_DONE" 메시지 전송 추가
+  - startRecording(): recFailed 초기화 + bufferIndex 리셋
+  - loop() disconnect 감지 시 stopRecording() → stopRecordingWithFail() 변경
+  - loop()에 recFailed timeout 처리 로직 추가
+
+  [Watchdog Timer]
+  - <esp_task_wdt.h> 포함 추가
+  - WDT_TIMEOUT_SEC = 10초 (auto-reset)
+  - setup() 끝에서 esp_task_wdt_init() + loop() 태스크 등록
+  - audioTask() 시작 시 WDT 등록 + 매 iteration마다 esp_task_wdt_reset()
+  - loop() 시작에서 esp_task_wdt_reset() 호출
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 00:00] 서버 배포용 모델 폴더 복사
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\server_models\Heart_binary_classification\
+      G:\stetho_ai\server_models\Lung_classification\
+      G:\stetho_ai\server_models\LSTM_first\
+유형: 생성 (복사)
+내용:
+  - 서버 배포를 위해 세 모델 디렉토리를 server_models/ 폴더에 복사
+  - Heart_binary_classification: 심음 분류 모델
+  - Lung_classification: 호흡음 분류 모델
+  - LSTM_first: 노이즈 제거 CRNN 모델
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 00:01] server_models에 TUNet-v2 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\server_models\ShittyDenoise\
+      G:\stetho_ai\server_models\tunet_v2_best.h5
+유형: 생성 (복사)
+내용:
+  - ShittyDenoise 폴더(TUNet-v2 훈련 코드) 복사
+  - LUNet_Dataset/tunet_v2_best.h5 가중치 파일 복사
+  - 노이즈 제거 모델을 LSTM_first에서 TUNet-v2로 교체
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 00:02] 라즈베리파이용 추론 스크립트 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\server_models\predict_heart.py
+      G:\stetho_ai\server_models\predict_lung.py
+      G:\stetho_ai\server_models\predict_denoise.py
+      G:\stetho_ai\server_models\requirements.txt
+유형: 생성
+내용:
+  - predict_heart.py: ResNet+CBAM+XGBoost 심음 분류 추론 (SR=4000, 5초 윈도우)
+  - predict_lung.py: MobileNetV2 호흡음 분류 추론 (SR=16000, mel→224x224 이미지)
+  - predict_denoise.py: TUNet-v2 노이즈 제거 추론 (SR=4000, 5초 청크, 오버랩-Add)
+  - requirements.txt: 라즈베리파이 설치 의존성 목록
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 00:10] AI 추론 서버 + 웹 대시보드 + 펌웨어 연동
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\server.py
+      G:\stetho_ai\Stetho_Web\2026-03-26.html
+      G:\stetho_ai\stethoscope-software\2026-03-25-1442_edited.h
+유형: 수정
+내용:
+  server.py:
+  - 가짜 AI (random) → 실제 모델 추론으로 교체
+  - 서버 시작 시 3개 모델 로드 (심음/호흡음/디노이즈)
+  - HEART: TUNet-v2 디노이즈 → ResNet+CBAM+XGBoost 분류
+  - LUNG: MobileNetV2 분류 (디노이즈 없음, 심음 전용 모델)
+  - stethoscope/result 토픽으로 분류 결과 JSON 발행
+  - stethoscope/denoised/{pat}/{type} 토픽으로 디노이즈 WAV 발행
+
+  웹 대시보드 (2026-03-26.html):
+  - AI 분석 결과 카드 추가: 판정/신뢰도/확률 바 그래프/히스토리
+  - 디노이즈 오디오 카드 추가: WAV 재생/파형 캔버스/원본 vs 디노이즈 비교
+  - stethoscope/result, stethoscope/denoised/# 토픽 구독
+  - ESP32로 AI 결과 BLE 전송 (AI:HEART:Normal:95 형식)
+
+  펌웨어 (2026-03-25-1442_edited.h):
+  - AI: BLE 명령 파싱 추가 (MyCmdCallbacks)
+  - drawAiResult() 함수: TFT에 분류 결과/신뢰도 5초간 오버레이 표시
+  - loop()에서 aiResultPending 시 결과 화면 우선 표시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 00:15] TUNet-v2 .h5 → .tflite 변환 (RPi 호환)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\server_models\tunet_v2_best.tflite
+      G:\stetho_ai\server_models\predict_denoise.py
+      G:\stetho_ai\server_models\convert_to_tflite.py
+유형: 생성 / 수정
+내용:
+  - Python 3.13에서 imp 모듈 제거로 .h5 로드 불가 → TFLite 변환
+  - convert_to_tflite.py로 .h5 → .tflite 변환 (14.8MB)
+  - predict_denoise.py를 TFLite 런타임 기반으로 전면 수정
+  - tensorflow 대신 tflite-runtime만 필요 (RPi에서 훨씬 가벼움)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 01:30] 심음/호흡음 모델 Unknown 클래스 추가 (3-class / 6-class)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Heart_binary_classification\preprocessing.py
+      G:\stetho_ai\Heart_binary_classification\XGBClassifier_Full.py
+      G:\stetho_ai\Lung_classification\data_balance.py
+      G:\stetho_ai\Lung_classification\focal224.py
+      G:\stetho_ai\server_models\predict_heart.py
+      G:\stetho_ai\server_models\predict_lung.py
+      G:\stetho_ai\server.py
+유형: 수정
+내용:
+  - 심음 분류: 2-class(Normal/Abnormal) → 3-class(Normal/Abnormal/Unknown)
+  - 호흡음 분류: 5-class → 6-class (Unknown 추가)
+  - ESC-50 환경음 데이터셋(2000개)을 Unknown 학습 데이터로 활용
+  - preprocessing.py: Unknown(ESC-50) WAV 로딩 및 mel-spectrogram 변환 추가
+  - XGBClassifier_Full.py: num_classes=3, 3-class confusion matrix/report 출력
+  - data_balance.py: ESC-50 → Unknown 스펙트로그램 이미지 생성 (train/val/test)
+  - focal224.py: 학습 시 클래스 목록 출력 추가 (ImageFolder 자동 인식)
+  - predict_heart.py: 3-class 추론, prob_unknown 반환, Unknown 경고 메시지
+  - predict_lung.py: CLASSES에 Unknown 추가, Unknown 경고 메시지
+  - server.py: Unknown 판정 시 action="RE_AUSCULTATE" + 다시 청진 안내 전송
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 22:40] Unknown 클래스 포함 모델 학습 완료
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Heart_binary_classification\resnet_cbam_best.pth
+      G:\stetho_ai\Heart_binary_classification\heart_xgb_model.json
+      G:\stetho_ai\_misc\lung\classification\LUNG_SOUND\stetho_mobilenetv2_224_focal.pth
+      G:\stetho_ai\server_models\Heart_binary_classification\resnet_cbam_best.pth
+      G:\stetho_ai\server_models\Heart_binary_classification\heart_xgb_model.json
+      G:\stetho_ai\server_models\Lung_classification\stetho_mobilenetv2_224_focal.pth
+유형: 생성 (재학습)
+내용:
+  - 심음 3-class: Accuracy 92.1% / Unknown Precision 98% / Unknown Recall 100%
+  - 심음 데이터: 총 24,152 세그먼트 (Normal/Abnormal/Unknown 균형 샘플링)
+  - 심음 학습: 31 epoch (early stopping), CBAM-ResNet + XGBoost 앙상블
+  - 호흡음 6-class: Val Acc 92.2% (8 epoch early stopping)
+  - 호흡음 데이터: Unknown 1600장(train) + 200장(val) + 200장(test)
+  - 두 모델 모두 server_models/ 에 복사 완료
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 23:10] 웹 대시보드 Unknown 판정 처리 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+      G:\stetho_ai\server.py
+유형: 수정
+내용:
+  - handleAiResult(): Unknown 판정 시 라벨 노란색 "다시 청진 필요" 표시
+  - 노란색 경고 배너 동적 생성 (server.py의 message 필드 표시)
+  - 확률 바에 Unknown 항목 추가 (심음: 3개 바, 호흡음: Unknown 색상 노란색)
+  - 히스토리에 Unknown → "재청진필요" 노란색 표시
+  - setBadge(): Unknown 시 'warn' 뱃지로 표시
+  - sendResultToDevice(): Unknown → ESP32에 AI:{TYPE}:RECHECK:0 전송
+  - server.py: Unknown 판정 시 EMR 상태 "대기중" 유지 (청진완료로 변경 안 함)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 23:30] 펌웨어 LCD AI 결과 팝업 기능 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\stethoscope-software\2026-03-26-2310.h
+유형: 생성 (2026-03-25-1442.h 기반)
+내용:
+  - AppState에 AI_RESULT 추가
+  - AI 결과 변수: aiResultType, aiResultLabel, aiResultConf
+  - 대기 상태: isWaitingAI, waitingStartMs, dotAnimStep (점 애니메이션)
+  - 마지막 결과 소형 표시: lastAiLabel, lastAiConf
+  - BLE onWrite: AI:TYPE:LABEL:CONF 형식 파싱 → AI_RESULT 상태 전환
+  - drawUI() AI_RESULT 팝업: 상단 컬러 바 + 아이콘 + 결과 + 신뢰도
+    Normal=초록, Abnormal=빨강, RECHECK=주황
+  - ACTIVE 화면: selectedPatient 아래 "Wait . / .. / ..." 점 애니메이션
+  - ACTIVE 화면: AI 결과 후 소형 "[Normal 87%]" 표시 유지
+  - loop(): 녹음 완료 시 isWaitingAI=true + 대기 시작
+  - loop(): 대기 중 500ms마다 점 애니메이션 갱신
+  - loop(): 30초 타임아웃 → 자동으로 RECHECK 팝업 표시
+  - loop(): AI_RESULT 상태에서 L 또는 R 버튼으로 팝업 닫기
+  - 파형/BPM: isWaitingAI 중에는 그리기 중단
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 23:10] 펌웨어 AI 결과 팝업 & 대기 애니메이션 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\stethoscope-software\2026-03-26-2310.h
+유형: 수정
+내용:
+  - AppState에 AI_RESULT 추가 (ACTIVE/SLEEP/POPUP/PAIRING/AI_RESULT)
+  - AI 결과 대기 상태: isWaitingAI, waitingStartMs, dotAnimStep/Ms, lastAiLabel/Conf 변수 추가
+  - stopRecording() → isWaitingAI=true, 대기 시작 타이머 설정
+  - 대기 중 UI: HEART/LUNG 화면에서 환자번호 아래 "." / ".." / "..." 점 애니메이션 (500ms 간격, 노란색)
+  - 팝업 닫힌 후 마지막 결과 미니 표시: "[Normal 87%]" 형식, 결과에 따라 초록/빨강/주황색
+  - AI_RESULT 상태 전체화면 팝업: 상단 색 바(HEART=빨강/LUNG=청록), 아이콘, 라벨, 신뢰도 %
+  - Normal=초록, Abnormal=빨강, RECHECK=주황, RECHECK는 "다시 청진해 주세요" 안내 표시
+  - L 또는 R 버튼으로 팝업 닫기 → ACTIVE 복귀 (자동 닫힘 없음)
+  - 30초 무응답 시 RECHECK 자동 팝업 (AI_WAIT_TIMEOUT_MS=30000)
+  - AI 대기 중 파형/BPM/RR 그리기 중단 (!isWaitingAI 조건 추가)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-26 23:30] CLAUDE.md 전면 업데이트 (프로젝트 전체 스냅샷)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\CLAUDE.md
+유형: 수정
+내용:
+  - 현행 파일 버전 테이블 추가 (firmware/web/server/모델 각 최신 파일 명시)
+  - BLE 프로토콜 전체 정리 (firmware→web, web→firmware 메시지 포맷)
+  - 펌웨어 AppState 상태머신 설명 (AI_RESULT 포함)
+  - AI 결과 JSON 포맷 전체 (심음/폐음/Unknown 분기)
+  - ML 모델 3종 아키텍처·전처리·파일 경로 정리
+  - Web Bridge 주요 JS 함수 테이블
+  - 학습 데이터 경로 (Windows 개발 PC 기준) 명시
+  - conda 대신 직접 python 경로 사용 메모
+  - REC_FAIL .startsWith() 주의사항 명시
+  - 8kHz 통일 완료 사실 기록
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 00:10] 환자 목록 요청 타이밍 버그 수정 + 재요청 버튼 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+유형: 수정
+내용:
+  - 버그: subscribe() ACK 전에 publish() 발행 → 서버 응답 놓칠 수 있음
+  - 수정: subscribe callback에서 publish 호출 (ACK 확인 후 req 발행)
+  - 버그: stethoscope/result, denoised/# 구독이 on('connect') 밖에 있어 재연결 시 누락
+  - 수정: 모든 subscribe를 on('connect') 내부로 이동
+  - 추가: 환자 목록 재요청 버튼 (🔄) — MQTT 연결 중일 때 언제든 재요청 가능
+  - 추가: refreshPatients() 함수
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 00:20] server.py 환자 목록 요청 버그 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\server.py
+유형: 수정
+내용:
+  - 버그: on_connect에서 init_emr() 예외 발생 시 subscribe 3개 전부 실행 안 됨
+    → req_patients 구독 못 해서 환자 목록 요청을 영원히 못 받는 문제
+  - 수정: init_emr()를 try/except로 감싸고 실패해도 subscribe는 반드시 실행
+  - 버그: mqtt.Client() — paho-mqtt 2.x에서 CallbackAPIVersion 미명시 시
+    on_connect 콜백 미호출 가능
+  - 수정: mqtt.Client(mqtt.CallbackAPIVersion.VERSION1) 명시, paho < 2.0 fallback 추가
+  - 추가: 구독 완료 로그 출력
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 08:15] server.py EMR 오업데이트 방지
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\server.py
+유형: 수정
+내용:
+  - 버그: 모델 미로드(MODEL_NOT_LOADED) 또는 오류(ERROR) 시에도 update_emr 호출
+    → 환자 상태가 "청진완료"로 잘못 기록되는 문제
+  - 수정: Unknown / MODEL_NOT_LOADED / ERROR 라벨 시 EMR 업데이트 스킵
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 08:30] Unknown 판정 임계값 로직 추가 (심음/폐음)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\server_models\predict_heart.py
+      G:\stetho_ai\server_models\predict_lung.py
+유형: 수정
+내용:
+  - 버그: 순수 argmax 사용 → Unknown 확률이 높아도 Abnormal이 조금 더 높으면 Abnormal 판정
+  - 예: Normal:15% Abnormal:48% Unknown:37% → argmax="Abnormal" (잘못된 결과)
+  - 수정: UNKNOWN_THRESHOLD=30.0 추가, prob_unknown >= 30% 이면 Unknown 우선 판정
+  - Unknown 제외 후 나머지 클래스만 비교하는 2단계 판정 로직
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 08:40] 웹 AI 결과 표시 버그 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+유형: 수정
+내용:
+  - 버그: MODEL_NOT_LOADED / ERROR 라벨이 AI 결과 영역에 그대로 표시됨
+  - 수정: 오류 라벨 수신 시 결과 업데이트 스킵, aiBadge를 "분석중"으로 유지
+  - 버그: 최근 분석 히스토리에 MODEL_NOT_LOADED 기록됨
+  - 수정: 히스토리는 Normal / Abnormal / Unknown(재청진필요) 만 기록
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 09:00] 오디오 탭 선택 기능 추가 (원본/디노이즈)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+유형: 수정
+내용:
+  - 전역 변수 추가: origWavBuf, origAudioBuffer, origAudioEl, origAudioUrl, origSourceNode, origIsPlaying, selectedAudioTab, denoiseWavBytes
+  - stopRec(): 원본 WAV를 origWavBuf에 저장, Web Audio API 디코딩, origAudioEl 생성
+  - handleDenoised(): denoiseWavBytes 저장, 수신 시 탭을 'denoised'로 초기화, 탭 테두리 색 초기화
+  - selectAudioTab(tab): 재생 정지, 탭 테두리 강조, 큰 캔버스 파형 및 레이블 전환
+  - toggleDenoisePlay(): selectedAudioTab 기반으로 원본/디노이즈 중 선택된 오디오 재생
+  - drawDenoiseWaveform(): color 파라미터 추가 (기본값 '#3fb950'), 원본 탭 선택 시 '#8b949e' 색으로 파형 표시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 09:30] 신호세기 표시 제거 + 환자 NVS 저장 비활성화
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\stethoscope-software\2026-03-26-2310.h
+유형: 수정
+내용:
+  - 신호세기 관련 상수 삭제 (SIG_QUALITY_Y, SIG_BAR_WIDTH, SIG_BAR_GAP, SIG_BAR_HEIGHTS, SIG_BAR_COUNT, SIG_UPDATE_INTERVAL_MS)
+  - SignalLevel enum 삭제 (SIG_NONE, SIG_WEAK, SIG_GOOD)
+  - getSignalLevel(), drawSignalQuality() 함수 삭제
+  - lastSigLevel, lastSigDrawTime 전역 변수 삭제
+  - loop()에서 drawSignalQuality() 호출 제거
+  - drawUI()에서 lastSigLevel/lastSigDrawTime 리셋 코드 제거
+  - nvsLoad()에서 selectedPatient NVS 복원 제거 (재부팅 시 항상 "NONE"으로 시작)
+  - nvsSavePatient() 함수 삭제
+  - NVS_KEY_PATIENT 상수 삭제
+  - 환자 선택 시 nvsSavePatient() 호출 제거
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 10:00] 버그 리뷰 — 7건 발견 및 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: G:\stetho_ai\Stetho_Web\2026-03-26.html
+      G:\stetho_ai\stethoscope-software\2026-03-26-2310.h
+유형: 수정
+내용:
+  [Web] buildWav 스테레오→모노 수정: WAV 채널 2→1, 파일 크기 절반, 스펙(8kHz/16bit/mono) 일치
+  [Web] AudioContext 누수 수정: handleDenoised/toggleDenoisePlay에서 매번 new AudioContext → 공유 getAudioCtx() 함수
+  [Web] errorLabels에서 'UNKNOWN'(대문자) 데드코드 제거 — 서버는 'Unknown' 전송이므로 매칭 안됨
+  [Web] onCmd의 SIG: 핸들러 데드코드 제거 (신호세기 기능 삭제됨)
+  [Web] onAudio 타임아웃에 isRecording 가드 추가 — 새 녹음 시작 시 이전 타임아웃과 충돌 방지
+  [FW] isWaitingAI 중 버튼 가드: AI 결과 대기 중 모드변경(L)과 녹음(R) 차단, 슬립(L롱프레스)만 허용
+  [FW] 파일 헤더 주석에서 삭제된 기능(Signal quality, NVS patient) 참조 제거
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 작업] Presentation Mirror 기능 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Stetho_Web/2026-03-26.html
+      Stetho_Web/presentation.html (신규)
+유형: 수정 / 생성
+내용:
+  - [모바일] MQTT에 ui_event 브로드캐스트 추가
+      - recording_start / recording_done / ble_connected / ble_disconnected
+  - [모바일] 녹음 중 100ms 간격으로 wave_chunk (Int16 600샘플) publish
+  - [모바일] 5초 주기 mobile_hb heartbeat publish
+  - [프레젠테이션] presentation.html 신규 생성
+      - MQTT 전용(BLE 불필요), 자동 연결
+      - 3컬럼 데스크탑 레이아웃 (환자목록 / 파형 / AI결과)
+      - 모바일 heartbeat 기반 온라인/오프라인 오버레이
+      - wave_chunk 실시간 수신 → Canvas 파형 렌더링
+      - AI 결과 reveal 애니메이션 + 신뢰도 확률바
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 작업] 가상 청진기 화면 (Virtual Device) 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Stetho_Web/presentation.html
+유형: 수정
+내용:
+  - 왼쪽 컬럼 전체를 가상 청진기 화면(ESP32 TFT 시뮬레이션)으로 교체
+  - DEV_SCALE=1.4 로 135×240 → 189×336px 렌더링
+  - 5가지 상태 완전 구현: ACTIVE/POPUP/PAIRING/AI_RESULT/SLEEP
+  - 3가지 모드: HEART(빨강 파형)/LUNG(청록 파형)/PATIENT LIST
+  - L버튼: 탭=모드순환, 1초홀드=슬립 화면
+  - R버튼: 탭=녹음시작(가상5초)/환자이동, 1초홀드=환자선택
+  - AI결과: 상단 컬러바+라벨+신뢰도% 펌웨어 그대로 재현
+  - MQTT ui_event/ai_result/mobile_hb로 실제 기기 동작 미러링
+  - 환자 목록 우측 컬럼으로 이동
+  - 터치 이벤트 지원 추가
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 00:00] 하드웨어 진짜 미러링 구현 (True State Sync)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-03-26-2310.h
+      Stetho_Web/2026-03-26.html
+      Stetho_Web/presentation.html
+유형: 수정
+내용:
+  - [펌웨어] notifyDeviceState() 함수 추가 — BLE CMD로 STATE:* 전송
+  - [펌웨어] changeState() 호출 시 자동으로 notifyDeviceState() 호출
+  - [펌웨어] L SHORT press (모드 전환) 후 notifyDeviceState() 호출
+  - [펌웨어] stopRecording() AI 대기 시작 후 notifyDeviceState() 호출
+  - [펌웨어] 환자 선택 (R LONG) 후 notifyDeviceState() 호출
+  - STATE 포맷: STATE:{state}:{mode}:{patient_id}
+    예) STATE:ACTIVE:HEART:P001 / STATE:WAITING:LUNG:P002 / STATE:POPUP::NONE
+  - [웹브릿지] onCmd()에서 STATE: 파싱 → publishUIEvent({type:'device_state',...})
+  - [발표페이지] handleUIEvent()에서 device_state 처리 → 가상 디바이스 상태 동기화
+    active/waiting/popup/pairing/ai_result 모든 상태 동기화
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 00:05] 미러링 모드 되돌림 버그 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Stetho_Web/presentation.html
+유형: 수정
+내용:
+  - handleMobileHB()에서 hb.scan_type으로 devMode 덮어쓰는 코드 제거
+  - 모바일 heartbeat의 scan_type은 마지막 녹음 타입일 뿐, 현재 펌웨어 모드와 무관
+  - devMode는 펌웨어 STATE: 이벤트(device_state)로만 동기화되도록 변경
+  - 증상: L버튼으로 LUNG 전환 후 5초 뒤 heartbeat가 HEART로 되돌림
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 00:10] 환자 목록 R SHORT 미러링 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-03-26-2310.h
+      Stetho_Web/2026-03-26.html
+      Stetho_Web/presentation.html
+유형: 수정
+내용:
+  - [펌웨어] PATIENT 모드 R SHORT(다음 환자) 후 notifyDeviceState() 호출 추가
+  - [펌웨어] PATIENT 모드일 때 STATE에 currentPatIdx 포함: STATE:ACTIVE:PATIENT:P001:2
+  - [웹브릿지] STATE: 파싱에 parts[4](patIdx) 추가 → publishUIEvent에 포함
+  - [발표페이지] device_state 핸들러에서 ev.patIdx 파싱 → devPatIdx 동기화
+  - 증상: 실제 기기에서 R버튼으로 환자 이동 시 웹에 반영 안 됨
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 00:20] 프레젠테이션 가운데 EMR 테이블 + 환자 재지정 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Stetho_Web/presentation.html
+유형: 수정
+내용:
+  - 가운데 컬럼 레이아웃 변경: 파형(120px 고정) + EMR 테이블(나머지)
+  - EMR 테이블: ID, 성명, 병실, 상태, 청진부위, AI결과, 신뢰도 컬럼
+  - 환자 상태 실시간 추적: 대기중 → 녹음중 → 분석중 → 청진완료/재청진
+  - stethoscope/wav/# 구독 → WAV 바이너리 캡처 저장 (최대 10건)
+  - NONE 환자 녹음 시 "미지정" 행 표시 + "환자 재지정" 드롭다운 버튼
+  - 재지정 클릭 → 환자 선택 → 새 MQTT 토픽으로 WAV 재발행
+  - 파형/바이탈 영역 compact하게 축소 (font-size, padding 줄임)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27 00:30] EMR 진단명 + 전체 환자 표시 + 대기환자 필터링
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: server_models/server.py
+      Stetho_Web/presentation.html
+      CLAUDE.md
+유형: 수정
+내용:
+  - [서버] patients_emr.csv에 diagnosis(진단명) 컬럼 추가
+  - [서버] 기본 환자 데이터에 가상 진단명 포함 (고혈압/심부전, 기관지염, 흉통 R/O 폐렴)
+  - [서버] get_all_patients() 함수 추가 — 전체 환자 정보 반환 (age, gender, diagnosis, status, ai_result)
+  - [서버] stethoscope/req_all_patients 구독 → stethoscope/res_all_patients 발행
+  - [서버] AI 분석 완료 후 자동으로 res_all_patients 재발행 (EMR 실시간 갱신)
+  - [프레젠테이션] EMR 테이블에 나이, 진단명 컬럼 추가
+  - [프레젠테이션] allPatients 배열로 서버 CSV 전체 데이터 관리
+  - [프레젠테이션] EMR 테이블: 청진완료 환자도 표시 (상태 + AI결과 + 진단명)
+  - [프레젠테이션] 대기 환자 리스트(우측): 청진완료된 환자는 제외
+  - [CLAUDE.md] 새 MQTT 토픽 문서화 (req_all_patients, res_all_patients)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-27] presentation.html 버튼 인터랙션 제거
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Stetho_Web/presentation.html
+유형: 수정
+내용:
+  - L/R 버튼 클릭/터치 이벤트 핸들러 전부 제거
+  - devLShort, devLLong, devRShort, devRLong, devStartFake 함수 제거
+  - devBtnLDown, devBtnRDown 변수 제거
+  - 버튼 CSS: cursor:pointer → cursor:default, pointer-events:none, hover/active 효과 제거
+  - 하단 힌트 텍스트 "Short: tap | Long: hold 1s" → "Hardware Mirror"
+  - 이유: 프레젠테이션은 읽기 전용 미러링 목적, 버튼 조작 불필요
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 00:00] 심음 분류 모델 발표 참고 문서 작성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/심음분류_발표자료_참고문서.md
+유형: 생성
+내용:
+  - 참고 논문(PhysioNet CinC 2016) 기반 방법론과 본 프로젝트 비교 분석
+  - ResNet+CBAM+XGBoost 앙상블 모델 선택 이유 및 아키텍처 상세
+  - 전처리 파이프라인 설명 + 핵심 소스코드 발췌
+  - V1(52%) → V8(78%, 윈도우 도입) → V15(95.70%) 개량 과정 정리
+  - V14 vs V15 성능 비교 (MACC, Sensitivity, Specificity, Confusion Matrix)
+  - 타협점 분석 (Sensitivity vs Specificity, 모델 복잡도 vs 추론 속도)
+  - 기존 figures_v15/ 차트 8종 목록 포함
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 00:10] V1 vs V8 vs V15 비교 차트/테이블 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/generate_v1_v8_v15_comparison.py
+      Heart_binary_classification/figures_v15/09_v1_v8_v15_comparison.png
+      Heart_binary_classification/figures_v15/10_v1_v8_v15_table.png
+      Heart_binary_classification/figures_v15/v1_v8_v15_metrics.csv
+      Heart_binary_classification/figures_v15/v1_v8_v15_structure.csv
+      Heart_binary_classification/figures_v15/v1_v8_v15_v15class.csv
+유형: 생성
+내용:
+  - pandas 기반 V1/V8/V15 성능 비교 테이블 (MACC, Sensitivity, Specificity, Accuracy)
+  - 6-패널 종합 차트: 막대그래프, MACC 진화 라인, Sens-Spec 산점도, 구조비교, 워터폴, 클래스별 F1
+  - 테이블 이미지 (슬라이드 삽입용)
+  - CSV 3종 (핵심지표, 구조비교, V15 클래스별)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 00:15] 논문 비교 테이블 이미지 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/generate_comparison_tables.py
+      Heart_binary_classification/figures_v15/11_same_points_table.png
+      Heart_binary_classification/figures_v15/12_diff_points_table.png
+유형: 생성
+내용:
+  - 기존 논문과 동일한 점 테이블 이미지 (4항목)
+  - 기존 논문 vs 본 프로젝트 차이점 테이블 이미지 (7항목)
+  - 다크 테마, 발표 슬라이드 직접 삽입용
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 00:20] 2-Stage Ensemble Pipeline 다이어그램 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/generate_pipeline_diagram.py
+      Heart_binary_classification/figures_v15/13_pipeline_diagram.png
+유형: 생성
+내용:
+  - ResNet+CBAM+XGBoost 2-Stage 파이프라인 플로우 다이어그램
+  - Phase 1 (CNN Feature Extraction) + Phase 2 (XGBoost Classification) 구분
+  - 각 레이어별 채널/stride/dropout 상세 표기, 3-Class 확률 출력
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 00:25] MACC 진화 타임라인 그래프 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/generate_macc_evolution.py
+      Heart_binary_classification/figures_v15/14_macc_evolution.png
+유형: 생성
+내용:
+  - V1~V15 전체 MACC 진화 라인 그래프
+  - Phase 1~4 배경 색상 구분, V6 증강 실패 X마커
+  - V1→V8 (+26%p), V8→V15 (+17.7%p) 개선폭 화살표 표시
+  - 각 마일스톤별 핵심 변경사항 어노테이션
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 00:30] 데이터 누수 수정 - V16 파일 단위 분할 재학습
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/preprocessing.py
+      Heart_binary_classification/XGBClassifier_Full.py
+      Heart_binary_classification/check_overfitting.py
+      Heart_binary_classification/resnet_cbam_v16.pth (생성)
+      Heart_binary_classification/heart_xgb_v16.json (생성)
+      Heart_binary_classification/file_ids.npy (생성)
+유형: 수정/생성
+내용:
+  - preprocessing.py: 세그먼트별 원본 파일 인덱스(file_ids.npy) 저장 추가
+  - XGBClassifier_Full.py: random_split -> GroupShuffleSplit(파일 단위) 분할로 변경
+  - 기존 V15: 세그먼트 단위 분할 -> 같은 파일의 60% 오버랩 세그먼트가 train/val 교차 (데이터 누수)
+  - V16: 파일 단위 분할 -> Train 2472파일/Val 619파일, 교차 0건
+  - V16 결과: Accuracy 81.41%, Normal F1 0.81, Abnormal F1 0.80, Unknown F1 1.00
+  - 기존 모델(resnet_cbam_best.pth) 보존, V16 모델은 별도 파일로 저장
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 01:00] V16 개선 - 기기 미세심음(bad) 추가 + SpecAugment
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/preprocessing.py
+      Heart_binary_classification/XGBClassifier_Full.py
+유형: 수정
+내용:
+  - preprocessing.py: bad 폴더(미세심음 5개) Unknown으로 추가 (Unknown 1144->1584 세그먼트)
+  - XGBClassifier_Full.py: SpecAugment, CosineAnnealingLR, LabelSmoothing 0.1, AdamW 적용
+  - 결과: MACC 82.26% -> 85.96% (+3.7%p), Sensitivity 82.62% -> 86.67% (+4.05%p)
+  - Unknown recall 64% (bad 심음 중 일부가 Normal로 분류됨 - 에너지가 약해서)
+  - Normal/Abnormal 분류는 85-87% 수준으로 안정적
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 11:14] V16 bad 심음 데이터 제거 및 재학습
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/preprocessing.py
+      Heart_binary_classification/XGBClassifier_Full.py (재학습)
+유형: 수정
+내용:
+  - preprocessing.py: DEVICE_HEART_BAD_BASE 경로 및 bad 데이터 로딩 코드 제거
+  - get_device_metadata()에서 heart_bad_df 반환 제거 (3개→2개 반환)
+  - bad 심음(미세심음)은 학습에서 제외 → 서버 전처리에서 에너지 threshold로 필터링 권장
+  - 재학습 결과: Accuracy 83.16%, MACC 82.39%, Sensitivity 82.71%, Specificity 82.08%
+  - Unknown recall 100% 복구 (bad 제거 전 64% → 100%)
+  - 모델 저장: resnet_cbam_v16.pth, heart_xgb_v16.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 11:25] V16 반영 발표자료 이미지 재생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Heart_binary_classification/generate_v1_v8_v16_comparison.py (생성)
+      Heart_binary_classification/generate_macc_evolution_v16.py (생성)
+      Heart_binary_classification/generate_comparison_tables.py (수정)
+      Heart_binary_classification/figures_v15/09_v1_v8_v16_comparison.png (생성)
+      Heart_binary_classification/figures_v15/10_v1_v8_v16_table.png (생성)
+      Heart_binary_classification/figures_v15/11_same_points_table.png (재생성)
+      Heart_binary_classification/figures_v15/12_diff_points_table.png (재생성)
+      Heart_binary_classification/figures_v15/14_macc_evolution.png (재생성)
+유형: 생성 | 수정
+내용:
+  - V15(데이터 누수) → V16(File-level split) 반영하여 모든 발표자료 이미지 업데이트
+  - V1 vs V8 vs V16 비교 차트: MACC 82.39%, Sens 82.71%, Spec 82.08%, Acc 83.16%
+  - MACC 진화 그래프: V14-V15를 데이터 누수로 X 표시, V16을 실제 성능으로 표시
+  - 논문 비교 테이블: "본 프로젝트 (V15)" → "본 프로젝트 (V16)" 라벨 변경
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 14:55] V16 심음 모델 → 서버 배포용 교체
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  server_models/Heart_binary_classification/resnet_cbam_best.pth (교체)
+  server_models/Heart_binary_classification/heart_xgb_model.json (교체)
+유형: 수정
+내용:
+  - V16 모델 파일을 기존 파일명으로 덮어쓰기하여 서버 배포 준비
+  - resnet_cbam_v16.pth → resnet_cbam_best.pth (4.98MB)
+  - heart_xgb_v16.json → heart_xgb_model.json (2.16MB)
+  - predict_heart.py 코드 수정 불필요 (파일명 동일)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 15:25] 심음 분류: 디노이즈 후 분류 → 원본 분류로 변경
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: server.py
+유형: 수정
+내용:
+  - 디노이저(TUNet-v2)가 심음 왜곡하여 Abnormal 오분류 유발 확인
+  - 분류는 항상 원본 WAV 사용, 디노이즈 WAV는 재생용 MQTT 전송만
+  - classify_path를 denoised_path 대신 wav_path로 고정
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 15:54] V17 심음 모델 학습 (피크 정규화 + BLE 데이터 추가)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  Heart_binary_classification/preprocessing.py (수정)
+  Heart_binary_classification/XGBClassifier_Full.py (수정)
+  server_models/predict_heart.py (수정)
+  Heart_binary_classification/resnet_cbam_v17.pth (생성)
+  Heart_binary_classification/heart_xgb_v17.json (생성)
+  server_models/Heart_binary_classification/resnet_cbam_best.pth (교체)
+  server_models/Heart_binary_classification/heart_xgb_model.json (교체)
+유형: 수정 | 생성
+내용:
+  - 전처리/추론에 피크 정규화(peak normalization) 추가 — 음량 차이 제거
+  - BLE 전송 심음 녹음(heartwav/ 11개) Normal로 학습 데이터 추가
+  - V17 성능: MACC 84.14%, Sens 82.76%, Spec 85.52%, Acc 83.88%
+  - V16 대비: MACC +1.75%, Spec +3.44%
+  - BLE 녹음 테스트: Abnormal 오판 0/11 (V16은 3/11)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 16:30] 펌웨어 UI 개선 (환자선택 취소, BPM/RR 제거, 리스트 확장)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-03-30-1630.h (생성)
+유형: 생성
+내용:
+  - 환자 선택 취소 기능: HEART/LUNG 모드에서 R 길게 → DESELECTED
+  - BPM/RR 측정 표시 제거 (drawBPM, drawRR, drawBeatIndicator, drawBreathIndicator)
+  - 환자 리스트 3명→5명 표시 (ROW_HEIGHT 25→22, VISIBLE_ROWS 3→5)
+  - 하단 안내 텍스트 상태별 분기 (선택됨/미선택/환자모드)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 17:00] V17 성능 비교 차트 재생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  Heart_binary_classification/generate_v1_v8_v17_comparison.py (수정)
+  Heart_binary_classification/generate_macc_evolution_v17.py (수정)
+  Heart_binary_classification/figures_v15/11_v1_v8_v17_comparison.png (갱신)
+  Heart_binary_classification/figures_v15/12_v17_per_class.png (갱신)
+  Heart_binary_classification/figures_v15/13_v8_v17_waterfall.png (갱신)
+  Heart_binary_classification/figures_v15/14_macc_evolution.png (갱신)
+유형: 수정
+내용:
+  - V16→V17 데이터 반영: MACC 84.14%, Sens 82.76%, Spec 85.52%, Acc 83.88%
+  - Per-class 차트: Normal F1=0.84, Abnormal F1=0.84, Unknown F1=0.87
+  - MACC 진화 타임라인에 V17 포인트 추가 (V16: 82.4% → V17: 84.1%)
+  - Waterfall 차트: V8→V17 개선폭 +6.1%p
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-30 17:10] V16용 09/10번 차트를 V17로 재생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  Heart_binary_classification/generate_v1_v8_v17_comparison_09.py (생성)
+  Heart_binary_classification/figures_v15/09_v1_v8_v17_comparison.png (갱신)
+  Heart_binary_classification/figures_v15/10_v1_v8_v17_table.png (갱신)
+  Heart_binary_classification/figures_v15/v1_v8_v17_metrics.csv (갱신)
+  Heart_binary_classification/figures_v15/v1_v8_v17_structure.csv (갱신)
+  Heart_binary_classification/figures_v15/v1_v8_v17_class.csv (갱신)
+유형: 생성 | 수정
+내용:
+  - V16용 6패널 종합비교 차트(09)와 테이블 이미지(10)를 V17 데이터로 재생성
+  - V17 성능: MACC 84.14%, Sens 82.76%, Spec 85.52%, Acc 83.88%
+  - V17 클래스별: Normal F1=84%, Abnormal F1=84%, Unknown F1=87%
+  - 워터폴: V8→V17 +6.1%p, V1→V17 총 +32.1%p
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:00] 정상/비정상 심음 Mel-Spectrogram 비교 이미지 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_mel_comparison.py (생성), mel_spectrogram_comparison.png (생성)
+유형: 생성
+내용:
+  - 정상 심음(a0007)과 비정상 심음(a0001) mel-spectrogram 비교 시각화
+  - 4kHz 리샘플링, 64-mel, 5초 윈도우 (프로젝트 전처리 기준 동일)
+  - magma 컬러맵, 한글 레이블, 200dpi PNG 출력
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:05] Mel-Spectrogram 해상도 업그레이드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_mel_comparison.py (수정), mel_spectrogram_comparison.png (수정)
+유형: 수정
+내용:
+  - N_MELS 64 → 128로 증가
+  - figure 크기 14×5 → 16×7, DPI 200 → 300
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:10] Mel-Spectrogram 일반인 친화 버전으로 전면 개편
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_mel_comparison.py (수정), mel_spectrogram_comparison.png (수정)
+유형: 수정
+내용:
+  - 2x2 레이아웃 (상단: 파형, 하단: mel-spectrogram)
+  - 다크 테마 (#1a1a2e) 적용, 밝은 영역 강조
+  - 정상 심음에 "심장 박동" 화살표 주석 추가
+  - 각 패널에 한글 설명 박스 (규칙적 리듬 vs 심잡음 설명)
+  - 상단 제목·부제 추가: "AI는 소리를 이미지로 변환해서 분석합니다"
+  - Y축 레이블 "주파수 (높은음↑ 낮은음↓)"로 일반인 친화 표현
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:15] Shannon Envelope 적용 — 상단 파형을 에너지 곡선으로 교체
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_mel_comparison.py (수정), mel_spectrogram_comparison.png (수정)
+유형: 수정
+내용:
+  - 상단 raw 파형 → Shannon envelope (-x²·log(x²)) 에너지 곡선으로 교체
+  - fill_between으로 에너지 영역 시각화, Butterworth 로우패스 스무딩
+  - 정상 심음에 S1/S2 피크 화살표 주석 추가
+  - 설명 문구 업데이트 (심장 박동 에너지 관점)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:20] Shannon Envelope S1/S2 마킹 제거, Y축 0.2 이상만 표시
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_mel_comparison.py (수정), mel_spectrogram_comparison.png (수정)
+유형: 수정
+내용:
+  - S1/S2 피크 화살표 주석 제거
+  - Y축 하한 0.2로 설정하여 자잘한 노이즈 영역 제거
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:22] Shannon Envelope Y축 하한 0.2 → 0.1로 조정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_mel_comparison.py (수정), mel_spectrogram_comparison.png (수정)
+유형: 수정
+내용:
+  - Y축 하한 0.2에서 0.1로 완화하여 피크 사이 미세 에너지도 표시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:25] 비정상 심음 Shannon Envelope에 비정상 에너지 동그라미 표시
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_mel_comparison.py (수정), mel_spectrogram_comparison.png (수정)
+유형: 수정
+내용:
+  - 비정상 심음의 피크 사이 중간 에너지 범프를 자동 탐지
+  - 노란색 점선 타원(Ellipse)으로 비정상 에너지 구간 하이라이트
+  - 좌상단에 "비정상 에너지" 범례 텍스트 추가
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:30] ResNet+CBAM 시각화 2종 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_resnet_cbam_viz.py (생성), cbam_attention_map.png (생성), resnet_cbam_pipeline.png (생성)
+유형: 생성
+내용:
+  - CBAM Attention Map: 정상/비정상 spatial attention 오버레이 + channel attention Top20 바 차트
+  - Feature Map 파이프라인: 입력→Conv1→ResNet Block→CBAM→Spatial Attention 5단계 시각화
+  - CBAM 전후 변화량 히트맵 (강조/억제 영역 비교)
+  - 실제 resnet_cbam_best.pth 모델 weight 사용, 다크 테마 통일
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:40] CBAM Attention Map 3행 레이아웃으로 개편
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_resnet_cbam_viz.py (수정), cbam_attention_map.png (수정)
+유형: 수정
+내용:
+  - 기존 2행(오버레이+바차트) → 3행(원본/히트맵/윤곽선) 레이아웃으로 변경
+  - layer3 단독 → layer1+2+3 합산 attention으로 contrast 개선
+  - min-max 정규화 적용하여 히트맵 가시성 확보
+  - 3행에 contour + contourf로 attention 상위 75% 영역 노란 윤곽선 표시
+  - channel attention 바 차트 제거 (직관성 부족)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 00:50] ResNet+CBAM 시각화 색약 친화 전면 개편
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_resnet_cbam_viz.py (수정), cbam_attention_map.png (수정), resnet_cbam_pipeline.png (수정)
+유형: 수정
+내용:
+  - 빨강-초록 컬러맵 전부 제거 → cividis/viridis/plasma/inferno 통일
+  - 정상=파랑(#58a6ff), 비정상=주황(#f0883e) 색약 친화 색상
+  - 파이프라인: STEP 1~5 큰 숫자 원 추가, 보라-파랑-노랑 계열 설명 박스
+  - 3행 CBAM 전후 비교 레이아웃 (전/차이/후), PuOr 컬러맵
+  - 윤곽선 노랑 → 흰색으로 변경 (고대비)
+  - 전체 다크 테마 #0d1117로 통일
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 01:00] ResNet+CBAM 파이프라인 >>> 화살표 제거
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_resnet_cbam_viz.py (수정), resnet_cbam_pipeline.png (수정)
+유형: 수정
+내용:
+  - 1행 단계 사이 >>> 화살표 제거 (위치 부정확)
+  - 3행 전/후 사이 >>> 화살표 제거
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 01:10] CBAM 효과 비교 이미지 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_cbam_effect.py (생성), cbam_effect_comparison.png (생성)
+유형: 생성
+내용:
+  - CBAM 적용 전/후/차이 2x3 비교 (정상+비정상)
+  - layer1 feature map 사용, 독립 min-max 정규화로 디테일 확보
+  - 색약 친화 컬러맵 (viridis/plasma/PuOr)
+  - 강조/억제 비율 % 표시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 01:20] V8 vs V17 개선 요약 다이어그램 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_v8_v17_why.py (생성), v8_v17_improvement.png (생성)
+유형: 생성
+내용:
+  - V8→V17 4가지 개선 포인트 before/after 다이어그램
+  - 분류체계, 전처리, 모델구조, 실환경 대응 각각 비교
+  - 색약 친화 (회색=V8, 파랑=V17, 주황=화살표)
+  - MACC/Sensitivity 수치 상단 표시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 01:25] V8 vs V17 Mel-Spectrogram 전처리 비교 이미지 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_v8_v17_mel.py (생성), v8_v17_mel_comparison.png (생성)
+유형: 생성
+내용:
+  - 같은 심음(정상+비정상)을 V8(1000Hz,64x64) vs V17(4000Hz,64x79) 전처리로 비교
+  - V17의 더 높은 주파수 해상도와 Peak Normalization 효과를 시각적으로 대비
+  - 색약 친화 cividis 컬러맵, 해상도 수치 표시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 01:30] ResNet 잔차(Residual) 시각화 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_resnet_power.py (생성), resnet_residual_power.png (생성)
+유형: 생성
+내용:
+  - ResNet 3개 레이어의 입력/잔차/출력/잔차강도 4열 시각화
+  - 잔차 F(x) = output - identity로 각 레이어가 새로 학습한 패턴 표시
+  - 색약 친화 컬러맵 (cividis/PuOr/viridis/inferno)
+  - 비정상 심음(a0001) 사용
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 01:35] CBAM만 vs ResNet+CBAM feature map 비교 이미지 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_cbam_vs_resnet_cbam.py (생성), cbam_vs_resnet_cbam.png (생성)
+유형: 생성
+내용:
+  - 입력/CBAM만/ResNet+CBAM/차이 4열 x 정상+비정상 2행
+  - CBAM 출력(잔차 연결 전) vs ResNet 출력(잔차 연결 후) 직접 비교
+  - 차이맵으로 잔차 연결이 보존하는 정보 시각화
+  - 색약 친화 컬러맵 (cividis/plasma/viridis/PuOr)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 01:40] LU-Net v1 (LSTM+MSE) 디노이즈 성능 시각화 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_denoise_viz.py (생성), denoise_v1_performance.png (생성)
+유형: 생성
+내용:
+  - 원본/노이즈/디노이즈 3행 비교 (파형 + mel-spectrogram)
+  - SNR 비교 바 차트 (4.3dB → -1.4dB, 오히려 악화)
+  - v1 모델 구조 + 한계점 텍스트 박스
+  - 백색잡음 + 50Hz 전원험 합성 노이즈 사용
+  - 색약 친화 cividis 컬러맵
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 01:45] 디노이즈 데모 WAV 파일 저장 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: denoise_demo/1_clean.wav (생성), denoise_demo/2_noisy.wav (생성), denoise_demo/3_denoised_v1.wav (생성), generate_denoise_viz.py (수정)
+유형: 생성 | 수정
+내용:
+  - 원본/노이즈/디노이즈 WAV 파일 denoise_demo/ 폴더에 저장
+  - 발표 시 청중에게 직접 들려줄 수 있도록 데모 오디오 제공
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 02:00] 디노이즈 모델 3종 성능 시각화 + WAV 저장
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_denoise_all.py (생성)
+      denoise_all_comparison.png (생성)
+      denoise_LUNet_v2.png (생성)
+      denoise_TUNet_v1.png (생성)
+      denoise_TUNet_v2.png (생성)
+      denoise_demo/1_clean_4k.wav (생성)
+      denoise_demo/2_noisy_4k.wav (생성)
+      denoise_demo/4_denoised_lunet_v2.wav (생성)
+      denoise_demo/5_denoised_tunet_v1.wav (생성)
+      denoise_demo/6_denoised_tunet_v2.wav (생성)
+유형: 생성
+내용:
+  - LU-Net v2 (LSTM+Attn+Res+SI-SNR): SNR +7.0 dB
+  - TU-Net v1 (TCN+MSE): SNR +6.5 dB
+  - TU-Net v2 (TCN+Attn+Res+SI-SNR): SNR +7.2 dB (최고)
+  - 통합 5행 비교 + 개별 모델 4분할 이미지
+  - 4kHz WAV 데모 파일 6개 저장
+  - 색약 친화 cividis 컬러맵
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-03-31 02:10] LU-Net v1 개별 이미지 + WAV 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: generate_denoise_lunet_v1.py (생성), denoise_LUNet_v1.png (생성), denoise_demo/3_denoised_lunet_v1.wav (생성)
+유형: 생성
+내용:
+  - LU-Net v1 (LSTM+MSE, 4kHz 파형 기반): SNR +6.8 dB
+  - 다른 모델과 동일 형식 (4분할: 파형 비교 + mel 비교)
+  - WAV 데모 파일 저장
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 15:00] Flutter 네이티브 앱 (stetho_app) 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  stetho_app/pubspec.yaml (생성)
+  stetho_app/android/app/src/main/AndroidManifest.xml (수정)
+  stetho_app/lib/main.dart (수정)
+  stetho_app/lib/models/patient.dart (생성)
+  stetho_app/lib/models/ai_result.dart (생성)
+  stetho_app/lib/services/ble_service.dart (생성)
+  stetho_app/lib/services/mqtt_service.dart (생성)
+  stetho_app/lib/services/wav_encoder.dart (생성)
+  stetho_app/lib/services/app_state.dart (생성)
+  stetho_app/lib/screens/dashboard_screen.dart (생성)
+  stetho_app/lib/widgets/waveform_painter.dart (생성)
+유형: 생성
+내용:
+  - 웹 브릿지(Stetho_Web/2026-03-26.html)의 모든 기능을 Flutter 네이티브 앱으로 이식
+  - BLE 서비스: ESP32 스캔/연결, 오디오 수신, 명령 송수신
+  - MQTT 서비스: TCP 1883 직접 연결, WAV 업로드, AI 결과 수신
+  - Android Foreground Service: 백그라운드에서 BLE 연결 유지 (웹 브라우저 꺼짐 문제 해결)
+  - WakeLock: 화면 자동 꺼짐 방지
+  - 다크 테마 대시보드 UI (환자목록, 실시간 파형, AI 결과, 디노이즈, 업로드 기록, 로그)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 15:30] stetho_app 버그 수정 (18건 점검, 주요 7건 수정)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  stetho_app/lib/main.dart (수정)
+  stetho_app/lib/services/app_state.dart (수정)
+  stetho_app/lib/services/mqtt_service.dart (수정)
+  stetho_app/lib/services/ble_service.dart (수정)
+  stetho_app/lib/screens/dashboard_screen.dart (수정)
+  stetho_app/lib/models/patient.dart (수정)
+  stetho_app/lib/widgets/waveform_painter.dart (수정)
+유형: 수정
+내용:
+  - [CRITICAL] REC_DONE 수신 시 _sendWav() 호출 누락 → WAV가 서버로 전송 안 되는 버그 수정
+  - [CRITICAL] MQTT 재연결 시 리스너 중복 누적 → AI 결과 2배씩 처리되는 버그 수정
+  - [HIGH] BLE MTU 512 요청 추가 → 환자목록 잘림 방지
+  - [HIGH] 로그 스크롤 addPostFrameCallback 폭주 → 새 로그 추가 시에만 스크롤
+  - [HIGH] BLE UTF-8 디코딩 allowMalformed 추가 → 패킷 깨져도 크래시 방지
+  - [MEDIUM] Timer에서 mounted 체크 추가 → dispose 후 setState 크래시 방지
+  - [MEDIUM] BLE _device 참조 해제 추가 → 메모리 누수 방지
+  - 앱 시작 시 권한 요청 후 UI 표시 (Foreground Service 즉시 실행으로 인한 크래시 수정)
+  - Patient.ward 필드 int 타입 대응
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 16:30] stetho_app UI 탭 구조 개편 + 오디오 재생 + 환자 재지정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  stetho_app/lib/screens/dashboard_screen.dart (수정)
+  stetho_app/lib/services/mqtt_service.dart (수정 - WebSocket 전환)
+유형: 수정
+내용:
+  - 하단 탭 네비게이션 3개 (측정/EMR/설정)로 UI 분리
+  - 측정 탭: 실시간 파형 + AI 분석 결과
+  - EMR 탭: 대기 환자 목록 + 디노이즈 오디오 (재생) + 업로드 기록
+  - 설정 탭: 청진기 기기 정보 + 시스템 로그 + EMR/BLE 연결 버튼
+  - 디노이즈 오디오: 원본/디노이즈 둘 다 재생 버튼 + 파형 표시
+  - 환자 재지정 다이얼로그: 웹 모달과 동일한 UI (현재정보 + 환자선택 + 재지정 후 업로드)
+  - MQTT WebSocket(ws://114.206.167.99:9001) 연결로 수정 (TCP 1883 미지원)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 00:00] 환자 목록 인터랙티브 기능 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  stetho_app/lib/models/patient.dart
+  stetho_app/lib/services/mqtt_service.dart
+  stetho_app/lib/services/app_state.dart
+  stetho_app/lib/screens/dashboard_screen.dart
+유형: 수정
+내용:
+  - Patient 모델에 age, gender, diagnosis, status, aiResult 필드 추가
+  - Patient.copyWithEmr() 메서드 추가 (EMR 데이터 머지용)
+  - MQTT: stethoscope/res_all_patients 토픽 구독 + onAllPatients 콜백
+  - MQTT: requestAllPatients() 메서드 추가
+  - AppState: allPatients 리스트 + _onAllPatients 핸들러 (전체 EMR 파싱)
+  - AppState: 대기 환자 수신 시 자동으로 전체 EMR 요청
+  - AppState: getPatientsByWard(), getPatientDetail() 헬퍼 메서드
+  - 환자 이름 터치 → 상세 정보 팝업 (나이, 성별, 진단명, 청진상태, AI결과)
+  - 병실 배지 터치 → 해당 병실 환자 목록 팝업 (청진필요/완료 상태 표시)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 00:10] 한국 성씨 매핑 확장 + 앱 UI 한글이름 표시
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  stetho_app/lib/models/patient.dart
+  stetho_app/lib/screens/dashboard_screen.dart
+유형: 수정
+내용:
+  - nameMap에 50개 한국 성씨 추가 (강→Kang, 조→Cho, 윤→Yoon 등)
+  - BLE 전송용 name 필드: 영문 성씨 (ESP32 TFT에 표시)
+  - 앱 UI 환자 목록: rawName(한글 이름)만 표시 (기존 "Kim (김철수)" → "김철수")
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 00:20] Presentation 미러링 이벤트 발행 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  stetho_app/lib/services/mqtt_service.dart
+  stetho_app/lib/services/app_state.dart
+  stetho_app/lib/screens/dashboard_screen.dart
+유형: 수정
+내용:
+  - MQTT broker URL을 ws://114.206.167.99/ws로 수정 (mqtt_client 10.x 스킴 요구사항)
+  - MqttService: publishUIEvent, publishMobileHB, publishWaveChunk 메서드 추가
+  - AppState: 5초 주기 하트비트 발행 (stethoscope/mobile_hb)
+  - AppState: 녹음 시작/종료 시 ui_event 발행 (recording_start/recording_done)
+  - AppState: BLE 연결/끊김 시 ui_event 발행 (ble_connected/ble_disconnected)
+  - AppState: 펌웨어 STATE: 명령 수신 시 device_state ui_event 포워딩
+  - AppState: 녹음 중 100ms 간격으로 wave_chunk 발행 (실시간 파형)
+  - AndroidManifest: android:usesCleartextTraffic="true" 추가 (release ws:// 허용)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 00:30] 서버에 전체 EMR 응답 기능 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  server.py
+유형: 수정
+내용:
+  - get_all_patients() 함수 추가: CSV에서 전체 환자 정보 반환 (age, gender, diagnosis, status, ai_result 포함)
+  - stethoscope/req_all_patients 토픽 구독 추가
+  - on_message에 req_all_patients 핸들러 추가 → res_all_patients로 전체 EMR JSON 발행
+  - 이 변경으로 presentation.html과 Flutter 앱이 상세 EMR 데이터를 수신 가능
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 00:40] NONE 환자 AI 결과 표시 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  Stetho_Web/presentation.html
+유형: 수정
+내용:
+  - NONE 환자 EMR 행에서 파일 크기(KB) 대신 AI 결과(Normal/Abnormal/RECHECK) 표시
+  - handleAiResult에서 NONE 환자도 emrState에 결과 저장하도록 조건 변경
+  - renderEmr의 NONE 행에서 emrState로부터 label/conf 읽어서 표시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-01 00:50] 녹음 기록 삭제 기능 + 청진완료 환자 유지
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일:
+  server.py
+  Stetho_Web/presentation.html
+  stetho_app/lib/services/app_state.dart
+  stetho_app/lib/screens/dashboard_screen.dart
+유형: 수정
+내용:
+  - server.py: get_waiting_patients()가 전체 환자 반환 (청진완료 포함, 재청진 가능)
+  - presentation.html: NONE 행에 X(삭제) 버튼 추가
+  - presentation.html: confirmDeleteRecord() — 2단계 확인 (1차: 삭제? → 2차: AI결과 보여주고 재확인)
+  - presentation.html: 확인 후 wavStore에서 제거 + EMR 리렌더
+  - AppState: deleteUpload() 메서드 추가
+  - dashboard: 업로드 기록을 Dismissible 위젯으로 감싸서 스와이프 삭제 지원
+  - dashboard: _confirmDeleteUpload() — 2단계 확인 (1차: 삭제? → 2차: AI결과 있으면 보여주고 재확인)
+  - 청진완료 환자도 대기 환자 목록/청진기 리스트에서 제거하지 않음 (재청진 가능)
+  - MQTT stethoscope/delete_upload 토픽으로 삭제 이벤트 양방향 동기화
+  - 앱에서 삭제 → presentation에서도 자동 제거 (source 필드로 자기 이벤트 무시)
+  - presentation에서 삭제 → 앱에서도 자동 제거 (patient_id/scan_type/time으로 매칭)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-02 22:10] 최종 제출용 코드 모음 폴더 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: final_submission/ (폴더 생성 + 11개 파일 복사)
+유형: 생성
+내용:
+  - 최종 제출용 코드를 한 폴더에 모음
+  - 펌웨어: firmware_2026-03-30-1630.h (최신본)
+  - 웹 브릿지: web_bridge_2026-03-26.html
+  - 서버: server.py
+  - 추론 코드: predict_heart.py, predict_lung.py, predict_denoise.py
+  - 학습 코드: heart_preprocessing.py, heart_XGBClassifier_Full.py,
+    lung_data_balance.py, lung_focal224.py, denoise_train1.py
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-03 00:00] final_submission 실행 가이드 README 작성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: final_submission/README.md
+유형: 생성
+내용:
+  - 시스템 구성도 및 3계층 아키텍처 설명
+  - 제출 파일 목록 (실행 코드 7개 + 학습 코드 5개)
+  - AI 서버(Raspberry Pi), ESP32 펌웨어, Flutter 앱, 웹 브릿지 실행 가이드
+  - Mosquitto MQTT 브로커 설정 방법
+  - 전체 동작 흐름 (ESP32→앱→서버→앱→ESP32)
+  - AI 모델 학습 재현 절차 (심음/호흡음/디노이즈)
+  - BLE 프로토콜 및 MQTT 토픽 요약
+  - 트러블슈팅 가이드 (모델 로드, BLE, MQTT, Unknown 판정 등)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-03 09:40] update_emr pandas dtype 오류 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: server.py
+유형: 수정
+내용:
+  - update_emr()에서 CSV 읽을 때 audio_path, ai_result, status 컬럼을 str dtype으로 강제 지정
+  - 빈 셀을 빈 문자열로 fillna 처리
+  - 원인: CSV에 audio_path가 비어있으면 pandas가 float64로 추론 → 문자열 대입 시 LossySetitemError 발생
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-03 10:15] Presentation 오디오 재생 기능 추가
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Stetho_Web/presentation.html
+유형: 수정
+내용:
+  - 파형 위에 "원본 청진음" / "디노이즈 청진음" 재생 버튼 추가
+  - MQTT stethoscope/wav/# 수신 시 원본 WAV를 Blob으로 저장, 재생 가능
+  - MQTT stethoscope/denoised/# 구독 추가, 디노이즈 WAV도 Blob 저장 및 재생
+  - 한쪽 재생 시 다른 쪽 자동 정지, 재생/일시정지 토글
+  - 환자명·청진 타입 태그 표시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-04 00:00] 폐음 스펙트로그램 정규화 적용 및 재생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Lung_classification/data_balance.py
+      server_models/predict_lung.py
+유형: 수정
+내용:
+  - 오디오 피크 정규화 추가 (y / peak) — 녹음 볼륨 차이 제거
+  - 스펙트로그램 dB 변환 ref=np.max → ref=FIXED_REF(1.0) 변경
+  - 심음 전처리(preprocessing.py)와 동일한 정규화 기준 통일
+  - 기존 Spectrograms_Balanced 삭제 후 정규화 적용하여 재생성
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-04 00:10] 폐음 data_balance.py 전면 개편 + predict_lung.py 윈도우 수정
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Lung_classification/data_balance.py
+      server_models/predict_lung.py
+유형: 수정
+내용:
+  - 기존 Dataset_Split의 train/val/test를 전부 합친 뒤 클래스별 8:1:1 재분할
+  - 2초 고정 윈도우 → 5초 윈도우 / 2초 겹침(stride 3초) 슬라이딩으로 변경
+  - 피크 정규화 + ref=FIXED_REF(1.0) 유지
+  - Complex/Stridor 소수 클래스 augmentation 적용
+  - Normal train 1000개 캡 유지
+  - predict_lung.py FIXED_SEC 2→5초로 변경
+  - 기존 Spectrograms_Balanced 삭제 후 전량 재생성
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-04 00:20] ESC-50 Unknown에서 호흡 관련 카테고리 제외
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Lung_classification/data_balance.py
+유형: 수정
+내용:
+  - ESC-50 메타데이터(esc50.csv) 참조하여 필터링 추가
+  - breathing, coughing, snoring, sneezing 4개 카테고리(160개) 제외
+  - 호흡음과 혼동 가능한 환경음이 Unknown으로 학습되는 문제 해결
+  - Unknown 2000개 → 1840개로 축소
+  - 스펙트로그램 재생성 완료
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-04 00:40] 폐음 분류 모델 학습 v2 (정규화+가중치+샘플러)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Lung_classification/focal224.py
+      Lung_classification/data_balance.py
+      Lung_classification/stetho_mobilenetv2_224_focal.pth
+유형: 수정 | 생성
+내용:
+  - focal224.py: 클래스별 역빈도 가중치 Focal Loss 적용
+  - WeightedRandomSampler로 소수 클래스 오버샘플링
+  - Train augmentation (RandomHorizontalFlip, ColorJitter)
+  - Early stopping patience 5→7
+  - Test 세트 Classification Report + Confusion Matrix 출력 추가
+  - Unknown train 1472→550 제한 (data_balance.py)
+  - 결과: Test Acc 82.62%, Complex/Stridor 데이터 부족으로 분류 실패
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-04 01:00] 폐음 4클래스 병합 + 재학습
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Lung_classification/data_balance.py
+      Lung_classification/focal224.py
+      Lung_classification/stetho_mobilenetv2_224_focal.pth
+      server_models/predict_lung.py
+유형: 수정
+내용:
+  - 6클래스 → 4클래스 병합 (Complex→Crackle, Stridor→Wheeze)
+  - 최종 클래스: Crackle, Normal, Unknown, Wheeze
+  - predict_lung.py CLASSES 업데이트
+  - Augmentation 소수 클래스 제거 (병합으로 불필요)
+  - 결과: Test Acc 88.52% (이전 82.62%에서 +6%)
+  - Unknown 100% 정확, Normal F1=0.926
+  - Crackle recall 54% — Normal/Wheeze와 혼동 잔존
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-05 16:30] 폐음 3클래스 바이너리 분류 전환 + 6개 실험 비교
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: Lung_classification/data_balance.py
+      Lung_classification/focal224.py
+      Lung_classification/train_variants.py
+      Lung_classification/cross_eval.py
+      Lung_classification/full_eval.py
+      Lung_classification/stetho_resnet18_lung.pth
+      Lung_classification/cbam_lung.pth
+      Lung_classification/mobilenet_lung.pth
+      Lung_classification/hf_resnet_lung.pth
+      Lung_classification/hf_cbam_lung.pth
+유형: 생성 + 수정
+내용:
+  [4클래스 → 3클래스 전환]
+  - 4클래스(Crackle/Normal/Unknown/Wheeze) → 3클래스(Abnormal/Normal/Unknown)
+  - Crackle+Wheeze+Rhonchi+Stridor 모두 Abnormal로 통합
+  - 심음 분류와 동일한 구조로 통일
+
+  [전처리 개선]
+  - 16kHz → 8kHz 통일 (4kHz는 호흡음 정보 손실로 포기)
+  - power_to_db → PCEN(bias=10) 적용 (녹음 환경 자동 보정)
+  - RFN(Relaxed Frequency-wise Instance Normalization) 추가 (기기 도메인 제거)
+  - 2초 윈도우, 1초 스트라이드, 128-mel, FMAX=3500
+
+  [시도 후 포기한 접근법]
+  - 프레임 기반 분류(100ms/500ms/cycle): ICBHI 어노테이션 coarse, 크로스데이터셋 실패(0.92%)
+  - HF Lung 데이터 추가: 도메인 갭으로 ICBHI 68-70%로 하락
+  - SpecAugment/Mixup 제거: 과적합 (Train 98.9% vs Val 63.8%)
+
+  [6개 실험 비교 결과 (크로스데이터셋)]
+  | 실험                        | SPRSound | ICBHI  | 평균   |
+  | baseline ResNet18+RFN       | 92.18%   | 87.72% | 89.95% |
+  | +HF Lung                    | 90.12%   | 68.80% | 79.46% |
+  | CBAM                        | 92.80%   | 84.57% | 88.69% |
+  | Ensemble(ResNet+MobileNet)  | 92.08%   | 88.15% | 90.12% |
+  | HF+CBAM                     | 89.09%   | 82.83% | 85.96% |
+  | CBAM+Ensemble               | 93.62%   | 85.65% | 89.64% |
+
+  [최종 선택]
+  - Ensemble (ResNet18+RFN + MobileNetV2+RFN) 소프트 보팅
+  - ICBHI 일반화 최고(88.15%) + SPRSound 92.08%
+  - 학습 데이터: SPRSound + ICBHI (HF Lung 제외)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-05 20:50] On-device ML BPM 감지: Shannon labeling + 1D-CNN 학습 + C export
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: BPM_ondevice/01_shannon_labeling.py (생성)
+      BPM_ondevice/01b_verify_labels.py (생성)
+      BPM_ondevice/02_train_beat_detector.py (생성)
+      BPM_ondevice/02b_train_tf.py (생성)
+      BPM_ondevice/03_convert_tflite.py (생성)
+      BPM_ondevice/03_export_c_weights.py (생성)
+      BPM_ondevice/models/beat_cnn_best.pth (생성)
+      BPM_ondevice/models/beat_cnn_weights.h (생성)
+      BPM_ondevice/models/beat_cnn_inference.h (생성)
+      BPM_ondevice/data/X_windows.npy (생성)
+      BPM_ondevice/data/Y_labels.npy (생성)
+유형: 생성
+내용:
+  - DSP 대신 ML로 심음(S1)을 인식하여 BPM 계산하는 온디바이스 파이프라인 구축
+  - Shannon envelope (-x^2*log(x^2))로 PhysioNet 심음 데이터 3240개 자동 S1 라벨링
+  - 143만 윈도우 생성 (beat 24.3% / no-beat 75.7%)
+  - Tiny 1D-CNN (6017 params): Conv1D(16,7)->Conv1D(32,5)->Conv1D(32,3)->GAP->Dense(1)
+  - PyTorch CUDA 학습: Val Acc 86%, beat F1 0.74
+  - Conv+BN fuse -> 순수 C 추론 코드 생성 (TFLite 의존성 없음)
+  - ESP32에서 beat_cnn_predict() 호출로 200ms 윈도우 beat 판정 가능
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-05 21:30] RR에 Shannon envelope + bandpass 적용
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-04-05-2130.h (생성, 2026-03-30-1630.h 기반)
+      CLAUDE.md (수정)
+유형: 생성 | 수정
+내용:
+  - RR(호흡수) 감지를 단순 RMS에서 Shannon energy envelope으로 교체
+  - Bandpass 100-800Hz (2nd order Butterworth IIR) 추가 (폐음 대역 필터링)
+  - Shannon energy (-x^2*log(x^2)): 호흡음 에너지 강조, 무음/노이즈 억제
+  - 2단계 스무딩: 단기 20ms (Shannon) + 장기 500ms (호흡 주기 추출)
+  - 기존 onset detection + 히스테리시스 로직 유지
+  - CLAUDE.md 최신 펌웨어 버전 업데이트
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-05 22:00] BPM 유효 범위 확대
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+파일: stethoscope-software/2026-04-05-2130.h
+유형: 수정
+내용:
+  - DSP_BPM_VALID_MIN/MAX: 40-200으로 변경 후 50-180으로 복원
+  - DSP_NOISE_FLOOR: 0.0001 -> 0.00005 (더 약한 심음도 감지)
+  - DSP_THRESHOLD_RATIO: 0.25 -> 0.35 (확실한 피크만 잡아 노이즈 피크 감소)
+  - 실제 심음 테스트 시 감도 조정
